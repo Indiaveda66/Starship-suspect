@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="theme-color" content="#05060d">
+<title>Among us</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+html,body{margin:0;height:100%;background:#05060d;color:#eef1ff;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;touch-action:none}
+canvas{display:block;position:fixed;inset:0;width:100%;height:100%}
+.hidden{display:none!important}
+button{font-family:inherit;cursor:pointer}
+#hud{position:fixed;inset:0;pointer-events:none}
+#top{position:absolute;left:10px;right:10px;top:10px;display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.bar{width:100%;max-width:420px;height:18px;background:#1b2033;border:2px solid #39405a;border-radius:9px;overflow:hidden;position:relative}
+.bar>div{height:100%;background:linear-gradient(90deg,#2fd07a,#7ef0a8);width:0%;transition:width .4s}
+.bar span{position:absolute;inset:0;font-size:11px;font-weight:800;display:flex;align-items:center;padding-left:8px;color:#fff;text-shadow:0 1px 2px #000;letter-spacing:.5px}
+#tasks{background:rgba(10,12,24,.78);border:1px solid #2c3350;border-radius:10px;padding:6px 10px;font-size:12px;line-height:1.6;max-width:210px}
+#tasks .done{color:#5be38f;text-decoration:line-through;opacity:.8}
+#tasks .imp{color:#ff6b6b;font-weight:800}
+#roomLbl{position:absolute;right:10px;top:36px;background:rgba(10,12,24,.78);border:1px solid #2c3350;border-radius:20px;padding:4px 12px;font-size:12px;font-weight:700}
+#btns{position:absolute;right:16px;bottom:calc(22px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:12px;pointer-events:auto;align-items:flex-end}
+.act{width:80px;height:80px;border-radius:50%;border:3px solid rgba(255,255,255,.25);color:#fff;font-weight:900;font-size:12px;letter-spacing:.5px;opacity:.3;transition:opacity .15s,transform .1s;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;box-shadow:0 4px 0 rgba(0,0,0,.4)}
+.act .ic{font-size:26px;line-height:1}
+.act.on{opacity:1}
+.act:active{transform:scale(.94)}
+#bUse{background:#c79a12}
+#bReport{background:#c4462e}
+#bKill{background:#8d1b2a}
+#bVent{background:#3d4a63}
+#bAbil{background:#2c6e8f}
+#shiftBar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(170px + env(safe-area-inset-bottom));display:flex;flex-wrap:wrap;gap:6px;justify-content:center;pointer-events:auto;max-width:300px;background:rgba(10,12,24,.85);padding:8px;border-radius:12px;border:1px solid #3a4470}
+#shiftBar .vt-t{width:100%;text-align:center;font-size:12px;font-weight:800;color:#c9a0ff}
+#shiftBar button{border:2px solid #fff3;border-radius:10px;padding:6px 10px;color:#fff;font-weight:800;font-size:13px;text-shadow:0 1px 2px #000}
+.rg-h{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;margin:8px 0 5px;text-align:left}
+.rgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:5px}
+.rbtn{padding:7px 2px;border-radius:10px;border:2px solid #2f3757;background:#1a1f38;color:#dfe4ff;font-weight:700;font-size:11px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.rbtn .re{font-size:20px}
+.rbtn.imp{border-color:#4a2a36}
+.rbtn.sel{border-color:#7ab8ff;background:#22305a}
+.rbtn.imp.sel{border-color:#ff6b6b;background:#4a1f2a}
+#roleDesc{margin-top:8px;font-size:12.5px;color:#c3cae8;min-height:34px;background:#0d1122;border-radius:8px;padding:6px 10px;text-align:left}
+.badge{font-size:10px;font-weight:800;padding:1px 5px;border-radius:6px;margin-left:3px}
+.rolelist{text-align:left;font-size:13px;margin:10px auto 0;max-width:280px;line-height:1.7}
+#ventBar{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(170px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px;pointer-events:auto;align-items:center}
+#ventBar .vt-t{font-size:12px;font-weight:800;color:#9fb0d8;background:rgba(10,12,24,.8);padding:3px 10px;border-radius:10px}
+#ventBar button{padding:10px 16px;border-radius:12px;border:2px solid #5a6a90;background:#26304d;color:#fff;font-weight:800;font-size:14px;min-width:170px}
+#joy{position:absolute;left:22px;bottom:calc(26px + env(safe-area-inset-bottom));width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.18);pointer-events:auto;touch-action:none}
+#knob{position:absolute;left:50%;top:50%;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(255,255,255,.35);border:2px solid rgba(255,255,255,.5)}
+#toast{position:absolute;left:50%;top:38%;transform:translateX(-50%);background:rgba(20,8,12,.92);border:2px solid #ff5d5d;color:#fff;padding:10px 16px;border-radius:12px;font-weight:800;font-size:15px;text-align:center;max-width:86vw;transition:opacity .3s;opacity:0}
+#toast.show{opacity:1}
+#flash{position:fixed;inset:0;background:#ff2a2a;opacity:0;pointer-events:none}
+.ov{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(3,4,10,.86);padding:16px;overflow:auto;touch-action:pan-y}
+.card{width:100%;max-width:420px;background:#12162a;border:2px solid #2f3757;border-radius:18px;padding:20px;text-align:center;box-shadow:0 20px 60px #000a}
+h1{margin:4px 0 6px;font-size:30px;letter-spacing:.5px;background:linear-gradient(90deg,#7ab8ff,#c79bff);-webkit-background-clip:text;background-clip:text;color:transparent}
+.sub{margin:0 0 16px;color:#aab3d6;font-size:14px}
+.lbl{font-size:12px;font-weight:800;color:#8a93b8;text-transform:uppercase;letter-spacing:1px;margin:14px 0 8px}
+.seg{display:flex;gap:6px}
+.seg button{flex:1;padding:10px 4px;border-radius:10px;border:2px solid #2f3757;background:#1a1f38;color:#dfe4ff;font-weight:700;font-size:13px}
+.seg button.sel{border-color:#7ab8ff;background:#22305a}
+#swatches{display:flex;flex-wrap:wrap;gap:8px;justify-content:center}
+.sw{width:40px;height:40px;border-radius:50%;border:3px solid transparent;padding:0}
+.sw.sel{border-color:#fff;transform:scale(1.1)}
+.big{margin-top:20px;width:100%;padding:14px;border:0;border-radius:12px;background:linear-gradient(180deg,#3fd683,#239a59);color:#fff;font-size:18px;font-weight:900;letter-spacing:1px;box-shadow:0 4px 0 #156b3c}
+.big:active{transform:translateY(2px);box-shadow:0 2px 0 #156b3c}
+details{margin-top:14px;text-align:left;font-size:13px;color:#c3cae8;background:#0d1122;border-radius:10px;padding:8px 12px}
+details summary{font-weight:800;cursor:pointer}
+details li{margin:4px 0}
+/* mini games */
+.mpanel{width:100%;max-width:440px;background:#161b30;border:3px solid #3a4470;border-radius:16px;padding:14px;position:relative}
+.mhead{display:flex;justify-content:space-between;align-items:center;font-size:16px;font-weight:800;margin-bottom:10px}
+.x{width:36px;height:36px;border-radius:50%;border:0;background:#2b3258;color:#fff;font-size:18px;font-weight:900}
+.hint{font-size:12px;color:#98a1c7;text-align:center;margin:10px 0 0}
+.wires{position:relative;display:flex;justify-content:space-between;height:240px;padding:6px 0;background:#0e1222;border-radius:10px}
+.wcol{display:flex;flex-direction:column;justify-content:space-around;z-index:1}
+.wire{width:64px;height:32px;border:0;border-radius:0 8px 8px 0;background:var(--c);box-shadow:inset 0 -5px rgba(0,0,0,.3)}
+.wire.r{border-radius:8px 0 0 8px}
+.wire.sel{outline:3px solid #fff}
+.wire.ok{filter:brightness(.7)}
+#wsvg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.grid{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;background:#0e1222;padding:10px;border-radius:10px}
+.num{aspect-ratio:1;border:0;border-radius:10px;background:#2a3256;color:#fff;font-size:20px;font-weight:900;box-shadow:inset 0 -4px rgba(0,0,0,.3)}
+.num.lit{background:#2fd07a;color:#06301a}
+.bad{animation:shake .3s}
+@keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-8px)}75%{transform:translateX(8px)}}
+.hbar,.cbar{height:30px;background:#0e1222;border:2px solid #3a4470;border-radius:8px;overflow:hidden;position:relative}
+#hfill{height:100%;width:0;background:linear-gradient(90deg,#3e8dff,#7ad0ff)}
+.hpct{text-align:center;font-weight:800;margin:10px 0;font-size:15px}
+.holdbtn{display:block;margin:0 auto;width:130px;height:130px;border-radius:50%;border:0;background:radial-gradient(circle at 40% 35%,#ffd75e,#c7900c);color:#3a2700;font-weight:900;font-size:20px;box-shadow:0 6px 0 #7a5806;touch-action:none}
+.holdbtn.on{transform:translateY(4px);box-shadow:0 2px 0 #7a5806;filter:brightness(1.15)}
+#czone{position:absolute;top:0;bottom:0;background:rgba(47,208,122,.55);border-left:2px solid #2fd07a;border-right:2px solid #2fd07a}
+#cmark{position:absolute;top:-2px;bottom:-2px;width:6px;margin-left:-3px;background:#fff;box-shadow:0 0 8px #fff}
+.okmsg{font-size:24px;font-weight:900;color:#5be38f;text-align:center;padding:60px 0}
+/* meeting */
+#meet .mpanel{max-width:480px;border-color:#5a4a9a;background:#151833}
+#mTimer{font-size:13px;color:#ffcf5c}
+#chat{height:150px;overflow-y:auto;background:#0b0e1f;border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.45;touch-action:pan-y}
+.ln{margin:3px 0;animation:pop .25s}
+@keyframes pop{from{opacity:0;transform:translateY(6px)}}
+.dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:4px;vertical-align:middle}
+#cards{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:10px 0}
+.pc{display:flex;align-items:center;gap:6px;background:#212748;border:2px solid #2f3757;border-radius:10px;padding:3px 6px;min-height:50px;text-align:left;color:#fff}
+.pc.sel{border-color:#ffcf5c;background:#3a3520}
+.pc.dead{opacity:.35}
+.pc .nm{font-weight:800;font-size:13px}
+.pc .vt{display:flex;gap:2px;flex-wrap:wrap;margin-top:2px}
+.pc .vt i{width:9px;height:9px;border-radius:50%;display:inline-block;border:1px solid #0006}
+#skipRow{font-size:12px;color:#aab;display:flex;gap:3px;align-items:center;min-height:14px;margin-bottom:6px}
+#skipRow i{width:9px;height:9px;border-radius:50%;display:inline-block}
+.mbtns{display:flex;gap:6px}
+.mbtns button{flex:1;padding:11px 4px;border:0;border-radius:10px;font-weight:800;font-size:13px;color:#fff}
+#bAccuse{background:#7a3bb0}#bVote{background:#239a59}#bSkip{background:#4a5170}
+.mbtns button:disabled{opacity:.35}
+/* messages */
+#msg{flex-direction:column;text-align:center}
+.ejt{font-size:24px;font-weight:900;margin:10px 0;text-shadow:0 2px 8px #000}
+.ejs{color:#aab3d6;font-size:15px}
+.role-big{font-size:34px;font-weight:900;margin:6px 0}
+.space{width:100%;height:110px;position:relative;overflow:hidden}
+.floaty{position:absolute;top:30px;left:-60px;animation:drift 3.4s linear forwards}
+@keyframes drift{to{left:110%;transform:rotate(720deg)}}
+#end .card h1{font-size:34px}
+</style>
+<script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="flash"></div>
+
+<div id="hud" class="hidden">
+  <div id="top">
+    <div class="bar"><div id="tbar"></div><span id="tbarTxt">TOTAL TASKS</span></div>
+    <div id="tasks"></div>
+  </div>
+  <div id="roomLbl">📍 Cafeteria</div>
+  <div id="toast"></div>
+  <div id="ventBar" class="hidden"></div>
+  <div id="shiftBar" class="hidden"></div>
+  <div id="joy"><div id="knob"></div></div>
+  <div id="btns">
+    <button class="act hidden" id="bSab"><span class="ic">🧨</span><span>SABOTAGE</span></button>
+    <button class="act hidden" id="bAbil"><span class="ic" id="abilIc">⭐</span><span id="abilTxt">ABILITY</span></button>
+    <button class="act" id="bVent"><span class="ic">🕳️</span><span id="ventTxt">VENT</span></button>
+    <button class="act" id="bKill"><span class="ic">🔪</span><span id="killTxt">KILL</span></button>
+    <button class="act" id="bReport"><span class="ic">📢</span>REPORT</button>
+    <button class="act" id="bUse"><span class="ic">✋</span><span id="useTxt">USE</span></button>
+  </div>
+</div>
+
+<div id="start" class="ov">
+  <div class="card">
+    <h1>🚀 Among us</h1>
+    <p class="sub">One of the crew is a secret impostor. Find them, or be them!</p>
+    <div class="lbl">Your role</div>
+    <div class="rg-h" style="color:#7ab8ff">Crew roles</div>
+    <div class="rgrid" id="rgCrew"></div>
+    <div class="rg-h" style="color:#ff6b6b">Impostor roles</div>
+    <div class="rgrid" id="rgImp"></div>
+    <div id="roleDesc"></div>
+    <div class="lbl">Your colour</div>
+    <div id="swatches"></div>
+    <div style="margin-top:16px;padding:12px;border:1px solid #3a4470;border-radius:12px;background:#0d1122;text-align:left">
+      <div style="font-weight:900;color:#9fc8ff;text-align:center">🌐 ONLINE MULTIPLAYER (BETA)</div>
+      <button id="createRoom" class="big" style="margin-top:10px;background:linear-gradient(180deg,#4b9cff,#2865c4);box-shadow:0 4px 0 #17458e">CREATE ONLINE ROOM</button>
+      <div style="display:flex;gap:6px;margin-top:8px"><input id="joinCode" maxlength="6" placeholder="Enter 6-digit room code" style="min-width:0;flex:1;padding:11px;border-radius:9px;border:1px solid #46527a;background:#080b17;color:white;font-size:15px;text-align:center;letter-spacing:2px"><button id="joinRoom" style="padding:10px 12px;border:0;border-radius:9px;background:#269a67;color:white;font-weight:900">JOIN</button></div>
+      <div id="netStatus" style="font-size:11px;color:#aab3d6;text-align:center;margin-top:8px">Create a room or join a friend's code. Both players need an internet connection.</div>
+    </div>
+    <button id="play" class="big">PLAY OFFLINE</button>
+    <details>
+      <summary>How to play</summary>
+      <ul>
+        <li><b>Online:</b> One player creates a room and shares the 6-digit code. The other joins. The host runs the match; bots remain active. Online mode is a beta and works best when this file is hosted on an HTTPS website.</li>
+        <li><b>Move:</b> joystick (phone) or WASD / arrow keys. <b>E</b> = use, <b>R</b> = report, <b>Q</b> = kill.</li>
+        <li><b>Crewmate:</b> follow the yellow arrow to your tasks. Find a body? Hit REPORT. You can also call one emergency meeting at the red button in the Cafeteria.</li>
+        <li>In meetings, read what everyone says, accuse someone, then vote. Throw out the impostor or finish every task to win.</li>
+        <li><b>Special roles:</b> Engineers can vent, Scientists check Vitals, Sheriffs can shoot (miss and you're out!), Detectives scan players. Shapeshifters disguise as others, Phantoms turn invisible. The bots have roles too, so watch out for the Sheriff!</li>
+        <li><b>Sabotage:</b> As Impostor, use SABOTAGE to cycle Lights, Communications, and Reactor. During a Reactor meltdown, crewmates must reach the Reactor and press FIX before the timer ends.</li>\n        <li><b>Impostor:</b> KILL crewmates when nobody's watching. Anyone nearby will see you! Lie in meetings and blame others. Win when only one crewmate is left.</li>
+        <li>You can only see what's close to you, so watch out in dark corridors…</li>
+      </ul>
+    </details>
+  </div>
+</div>
+
+<div id="mini" class="ov hidden">
+  <div class="mpanel">
+    <div class="mhead"><span id="miniTitle">Task</span><button class="x" id="miniX">✕</button></div>
+    <div id="miniBody"></div>
+  </div>
+</div>
+
+<div id="meet" class="ov hidden">
+  <div class="mpanel">
+    <div class="mhead"><span id="mTitle">Who is the Impostor?</span><span id="mTimer"></span></div>
+    <div id="chat"></div>
+    <div id="cards"></div>
+    <div id="skipRow"></div>
+    <div class="mbtns">
+      <button id="bAccuse">💬 Accuse</button>
+      <button id="bVote">✅ Vote</button>
+      <button id="bSkip">⏭ Skip</button>
+    </div>
+  </div>
+</div>
+
+<div id="msg" class="ov hidden"><div id="msgIn"></div></div>
+
+<div id="end" class="ov hidden">
+  <div class="card">
+    <h1 id="endTitle">Victory</h1>
+    <div id="endBot"></div>
+    <p class="sub" id="endSub"></p>
+    <button id="again" class="big">PLAY AGAIN</button>
+  </div>
+</div>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const cv=$('c'),ctx=cv.getContext('2d');
+let W=0,H=0,DPR=1;
+function resize(){DPR=Math.min(2,window.devicePixelRatio||1);W=innerWidth;H=innerHeight;cv.width=W*DPR;cv.height=H*DPR;}
+addEventListener('resize',resize);resize();
+
+const rnd=Math.random,pick=a=>a[Math.floor(rnd()*a.length)];
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rnd()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a};
+const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+/* ---------- sound ---------- */
+let AC=null;
+function beep(f=440,d=.12,type='square',v=.05){try{AC=AC||new(window.AudioContext||window.webkitAudioContext)();const o=AC.createOscillator(),g=AC.createGain();o.type=type;o.frequency.value=f;g.gain.value=v;o.connect(g);g.connect(AC.destination);o.start();g.gain.exponentialRampToValueAtTime(.0001,AC.currentTime+d);o.stop(AC.currentTime+d+.02);}catch(e){}}
+function alarm(){beep(660,.18,'sawtooth',.05);setTimeout(()=>beep(440,.25,'sawtooth',.05),180)}
+
+/* ---------- map ---------- */
+const ROOMS=[
+ {n:'Cafeteria',x:550,y:60,w:300,h:220,c:'#4a5270'},
+ {n:'Medbay',x:250,y:80,w:200,h:160,c:'#3d5d62'},
+ {n:'Reactor',x:60,y:340,w:220,h:220,c:'#5a4152'},
+ {n:'Electrical',x:330,y:620,w:240,h:200,c:'#5a5538'},
+ {n:'Storage',x:780,y:600,w:280,h:220,c:'#4c4a60'},
+ {n:'Navigation',x:1120,y:330,w:220,h:220,c:'#3e4f70'},
+];
+const HALLS=[
+ {x:280,y:410,w:840,h:70},{x:665,y:280,w:70,h:130},{x:450,y:130,w:100,h:70},
+ {x:415,y:480,w:70,h:140},{x:885,y:480,w:70,h:120},{x:570,y:690,w:210,h:70},
+];
+const ALL=[...ROOMS,...HALLS];
+const NODES=[[700,170],[350,165],[170,445],[450,720],[920,710],[1230,445],[700,445],[450,445],[920,445]];
+const EDGES=[[0,1],[0,6],[6,7],[6,8],[7,2],[8,5],[7,3],[8,4],[3,4]];
+const ROOMNODE={Cafeteria:0,Medbay:1,Reactor:2,Electrical:3,Storage:4,Navigation:5};
+const ADJ=NODES.map(()=>[]);EDGES.forEach(([a,b])=>{ADJ[a].push(b);ADJ[b].push(a)});
+const EMERG={x:700,y:170};
+const TASKS=[
+ {id:'wires',name:'Fix wiring',room:'Electrical',x:372,y:650,type:'wires'},
+ {id:'nums',name:'Restart reactor',room:'Reactor',x:110,y:380,type:'nums'},
+ {id:'dl',name:'Download data',room:'Navigation',x:1290,y:380,type:'hold',label:'Downloading…'},
+ {id:'fuel',name:'Refuel engines',room:'Storage',x:1010,y:782,type:'hold',label:'Fuelling…'},
+ {id:'cal',name:'Calibrate scanner',room:'Medbay',x:300,y:115,type:'cal'},
+];
+const VENTS=[
+ {room:'Medbay',x:420,y:215,links:[1,2]},
+ {room:'Cafeteria',x:600,y:250,links:[0,2]},
+ {room:'Electrical',x:540,y:792,links:[0,1]},
+ {room:'Reactor',x:92,y:525,links:[4,5]},
+ {room:'Storage',x:1030,y:632,links:[3,5]},
+ {room:'Navigation',x:1305,y:522,links:[3,4]},
+];
+const TPB=5;               // tasks per bot
+const PSPEED=165,BSPEED=105;
+const KILL_CD_AI=22,KILL_CD_P=20;
+const SIGHT=220;
+const sightRange=()=>G&&G.sabotage?.type==='lights'?95:SIGHT;
+
+function bfs(s,t){const prev=Array(NODES.length).fill(-1),q=[s],seen=new Set([s]);while(q.length){const u=q.shift();if(u===t)break;for(const v of ADJ[u])if(!seen.has(v)){seen.add(v);prev[v]=u;q.push(v)}}const p=[];for(let u=t;u!==-1;u=prev[u]){p.unshift(u);if(u===s)break}return p}
+function roomOf(x,y){for(const r of ROOMS)if(x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h)return r.n;return 'Hallway'}
+const inR=r=>r==='Hallway'?'the hallway':r;
+function inAny(x,y){for(const r of ALL)if(x>=r.x&&x<=r.x+r.w&&y>=r.y&&y<=r.y+r.h)return true;return false}
+function canStand(x,y){const r=13;return inAny(x-r,y-r)&&inAny(x+r,y-r)&&inAny(x-r,y+r)&&inAny(x+r,y+r)}
+
+const COLORS=[['Red','#e5484d'],['Blue','#3e63dd'],['Green','#30a46c'],['Yellow','#f5d90a'],['Purple','#8e4ec6'],['Orange','#f76b15'],['Pink','#e93d82'],['Cyan','#05a2c2']];
+function shade(hex,p){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;const f=x=>clamp(Math.round(p<0?x*(1+p):x+(255-x)*p),0,255);return `rgb(${f(r)},${f(g)},${f(b)})`}
+function botSVG(c,dead,sz=34){return `<svg viewBox="-20 -32 40 52" width="${sz}" height="${sz*1.3}"><line x1="0" y1="-14" x2="0" y2="-26" stroke="#cdd3ee" stroke-width="2"/><circle cx="0" cy="-27" r="3.5" fill="${c}"/><ellipse cx="-7" cy="15" rx="5" ry="3.5" fill="${shade(c,-.4)}"/><ellipse cx="7" cy="15" rx="5" ry="3.5" fill="${shade(c,-.4)}"/><circle r="16" fill="${c}" stroke="rgba(0,0,0,.35)" stroke-width="2"/>${dead?'<path d="M-10 -7l6 6M-4 -7l-6 6M4 -7l6 6M10 -7l-6 6" stroke="#222" stroke-width="2.2"/>':'<circle cx="-6" cy="-3" r="5" fill="#fff"/><circle cx="6" cy="-3" r="5" fill="#fff"/><circle cx="-5" cy="-2" r="2.4" fill="#111"/><circle cx="7" cy="-2" r="2.4" fill="#111"/>'}</svg>`}
+
+const STARS=Array.from({length:140},()=>({x:rnd(),y:rnd(),r:rnd()*1.4+.3,a:rnd()*.7+.2}));
+
+/* ---------- game state ---------- */
+let G=null;
+/* ---------- PeerJS online room transport ---------- */
+let NET={mode:'offline',peer:null,conn:null,code:null,remoteId:null,lastSend:0};
+function netStatus(t){$('netStatus').textContent=t}
+function makeCode(){return String(Math.floor(100000+Math.random()*900000))}
+function sendNet(data){try{if(NET.conn&&NET.conn.open)NET.conn.send(data)}catch(e){netStatus('Connection interrupted. Please reconnect.')}}
+function serialiseGame(){return {pRole:G.pRole,role:G.role,ents:G.ents.map(e=>({...e,path:[]})),bodies:G.bodies.map(b=>({...b})),time:G.time,sabotage:G.sabotage?{...G.sabotage}:null,sabotageCd:G.sabotageCd,killCd:G.killCd,abilCd:G.abilCd,pTasks:{__set:[...G.pTasks]},emergencies:G.emergencies,state:G.state,flash:G.flash,remoteId:G.remoteId,sight:[],sightT:0,near:{task:null,emerg:false,body:null,kill:null,fix:false,vent:null},inTask:false,inVent:null,taskSig:''}}
+function restoreSets(v){if(!v||typeof v!=='object')return v;if(v.__set)return new Set(v.__set);if(Array.isArray(v))return v.map(restoreSets);for(const k of Object.keys(v))v[k]=restoreSets(v[k]);return v}
+function setupHostConnection(conn){NET.conn=conn;conn.on('open',()=>{if(!G)return;const e={id:G.ents.length,name:'Guest',color:'#05a2c2',x:G.ents[0].x+38,y:G.ents[0].y+20,alive:true,isPlayer:false,isRemote:true,isImp:false,path:[],idle:0,node:0,tasks:0,dir:{x:0,y:1},walk:0,witness:null,role:'crewmate'};G.ents.push(e);G.remoteId=e.id;G.remoteInput={x:0,y:0};$('roomLbl').textContent='🌐 ROOM '+NET.code;netStatus('Friend connected! Room '+NET.code);conn.send({type:'welcome',id:e.id,code:NET.code});});conn.on('data',m=>{if(!G||!m)return;if(m.type==='move'&&G.remoteId!=null)G.remoteInput={x:clamp(+m.x||0,-1,1),y:clamp(+m.y||0,-1,1)};if(m.type==='action'&&G.remoteId!=null){const e=G.ents[G.remoteId];if(!e||!e.alive)return;const nearBody=G.bodies.find(b=>dist(e,b)<95);if(m.action==='report'&&nearBody)callMeeting(e,nearBody);if(m.action==='use'){if(G.sabotage?.type==='reactor'&&dist(e,{x:145,y:400})<105){G.sabotage=null;toast('Guest stabilized the reactor!');updateTaskHUD()}else if(dist(e,EMERG)<95&&G.emergencies>0){G.emergencies--;callMeeting(e,null)}else{const task=TASKS.find(t=>!G.pTasks.has(t.id)&&dist(e,t)<60);if(task){e.tasks=Math.min(TPB,e.tasks+1);toast('Guest completed a task!');if(checkWin())return}}}}});conn.on('close',()=>{if(G&&G.remoteId!=null){G.ents=G.ents.filter(e=>!e.isRemote);G.remoteId=null;G.remoteInput=null}NET.conn=null;netStatus('Friend disconnected. You can keep playing with bots.');});conn.on('error',()=>netStatus('Connection error. Check the room code and internet connection.'))}
+function hostSnapshot(){if(NET.mode!=='host'||!NET.conn||!NET.conn.open||!G)return;try{NET.conn.send({type:'state',game:serialiseGame(),remoteId:NET.remoteId})}catch(e){}}
+function onlineBusy(on){$('createRoom').disabled=on;$('joinRoom').disabled=on;$('createRoom').style.opacity=on?'.55':'1';$('joinRoom').style.opacity=on?'.55':'1'}
+function stopPendingPeer(message){if(NET.peer){try{NET.peer.destroy()}catch(e){}}NET.peer=null;NET.conn=null;NET.mode='offline';onlineBusy(false);netStatus(message)}
+function startHostRoom(){if(!window.Peer){netStatus('PeerJS did not load. Check your internet connection and reload.');return}if(NET.peer)return;const code=makeCode();NET={mode:'host',peer:null,conn:null,code,remoteId:null,lastSend:0};onlineBusy(true);netStatus('Connecting to online server…');let settled=false;const peer=new Peer('starship-suspect-'+code,{debug:0});NET.peer=peer;const timer=setTimeout(()=>{if(settled)return;settled=true;stopPendingPeer('Online server is taking too long. Please try again in a moment, or check your internet connection.');},12000);peer.on('open',()=>{if(settled)return;settled=true;clearTimeout(timer);onlineBusy(false);netStatus('Room '+code+' created! Share this code with your friend.');$('createRoom').textContent='ROOM '+code;newGame(startRole,startColor);$('roomLbl').textContent='🌐 ROOM '+code});peer.on('connection',setupHostConnection);peer.on('error',e=>{if(settled){netStatus('Room error: '+(e.type||'connection failed')+'. Try again.');return}settled=true;clearTimeout(timer);stopPendingPeer('Could not create room ('+(e.type||'server error')+'). Please try again.')})}
+function joinHostRoom(){if(!window.Peer){netStatus('PeerJS did not load. Check your internet connection and reload.');return}if(NET.peer)return;const code=$('joinCode').value.replace(/\D/g,'').slice(0,6);if(code.length!==6){netStatus('Enter the 6-digit room code.');return}NET={mode:'guest',peer:null,conn:null,code,remoteId:null,lastSend:0};onlineBusy(true);netStatus('Connecting to online server…');let settled=false;const peer=new Peer(undefined,{debug:0});NET.peer=peer;const timer=setTimeout(()=>{if(settled)return;settled=true;stopPendingPeer('Connection timed out. Check your internet and try again.');},15000);peer.on('open',()=>{if(settled)return;const c=peer.connect('starship-suspect-'+code,{reliable:true});NET.conn=c;c.on('open',()=>{if(settled)return;settled=true;clearTimeout(timer);onlineBusy(false);netStatus('Connected! Waiting for the host…')});c.on('data',m=>{if(m.type==='welcome'){NET.remoteId=m.id;$('hud').classList.remove('hidden');$('start').classList.add('hidden');$('roomLbl').textContent='🌐 ROOM '+code;netStatus('Joined room '+code+'. You are the blue crewmate.')}if(m.type==='state'&&m.game){let g=restoreSets(m.game);const rid=m.remoteId;if(rid==null||!g.ents[rid])return;const local=g.ents[rid];g.ents.splice(rid,1);g.ents.unshift(local);g.ents[0].isPlayer=true;g.ents[0].isRemote=false;g.ents.forEach((e,i)=>{if(i>0)e.isPlayer=false});g.role='crew';g.pRole='crewmate';g.inTask=false;g.inVent=null;g.near={task:null,emerg:false,body:null,kill:null,fix:false,vent:null};G=g;updateTaskHUD();updateHUD();$('bKill').classList.add('hidden');$('bSab').classList.add('hidden');$('bVent').classList.add('hidden');$('bAbil').classList.add('hidden')}});c.on('close',()=>{clearTimeout(timer);onlineBusy(false);netStatus('Disconnected from host.')});c.on('error',()=>{clearTimeout(timer);stopPendingPeer('Could not join. Check the room code and try again.')})});peer.on('error',e=>{if(settled)return;settled=true;clearTimeout(timer);stopPendingPeer('Connection failed ('+(e.type||'server error')+'). Try again.')})}
+const ROLES={
+ crewmate:{team:'crew',e:'👩‍🚀',n:'Crewmate',d:'Do your tasks and find the Impostor.'},
+ engineer:{team:'crew',e:'🔧',n:'Engineer',d:'You can travel through vents too! But if someone sees you, they\'ll think you\'re the Impostor.'},
+ scientist:{team:'crew',e:'📟',n:'Scientist',d:'Check VITALS any time to see who is alive. You get an alert the moment someone dies.'},
+ sheriff:{team:'crew',e:'🤠',n:'Sheriff',d:'SHOOT a nearby player. Hit the Impostor and the crew wins. Hit an innocent and YOU are out!'},
+ detective:{team:'crew',e:'🔍',n:'Detective',d:'SCAN a nearby player to learn if they are the Impostor (35s cooldown).'},
+ impostor:{team:'imp',e:'🔪',n:'Impostor',d:'Kill, use vents and lie your way to victory.'},
+ shapeshifter:{team:'imp',e:'🎭',n:'Shapeshifter',d:'SHIFT into another crewmate for 15s. Anyone who sees you kill will blame THEM!'},
+ phantom:{team:'imp',e:'👻',n:'Phantom',d:'VANISH for 7s to sneak around unseen. You can\'t kill while invisible.'},
+ random:{team:'?',e:'🎲',n:'Random',d:'Surprise me! Any role, crew or impostor.'},
+};
+const looks=e=>e.disguise!=null?G.ents[e.disguise]:e;
+const seenOK=e=>e.alive&&!e.hidden&&!e.invis;
+let startRole='crewmate',startColor=0;
+
+function newGame(role,ci){
+  if(role==='random')role=rnd()<.3?pick(['impostor','shapeshifter','phantom']):pick(['crewmate','engineer','scientist','sheriff','detective']);
+  const pRole=role;role=ROLES[pRole].team;
+  const others=shuffle(COLORS.filter((_,i)=>i!==ci)).slice(0,5);
+  const list=[COLORS[ci],...others];
+  const ents=list.map((c,i)=>({id:i,name:c[0],color:c[1],x:0,y:0,alive:true,isPlayer:i===0,isImp:false,path:[],idle:0,node:0,tasks:0,dir:{x:0,y:1},walk:0,witness:null}));
+  const impId=role==='imp'?0:1+Math.floor(rnd()*5);
+  ents[impId].isImp=true;
+  ents.forEach(e=>e.role='crewmate');ents[0].role=pRole;
+  if(role==='crew')ents[impId].role=pick(['impostor','shapeshifter','phantom']);
+  {const crewBots=ents.filter(e=>!e.isPlayer&&!e.isImp);const roles=shuffle(['engineer','scientist','detective','crewmate','crewmate'].filter(r=>r!==pRole||r==='crewmate'));if(pRole!=='sheriff')roles[0]='sheriff';crewBots.forEach((e,i)=>e.role=roles[i]||'crewmate');}
+  G={pRole,sabotage:null,sabotageCd:0,abilCd:pRole==='detective'?10:pRole==='sheriff'?8:0,scans:{},role,ents,bodies:[],time:0,killCd:role==='imp'?10:14,pTasks:new Set(),emergencies:1,state:'intro',sight:[],sightT:0,pending:null,inTask:false,flash:0,meet:null,near:{},taskSig:''};
+  gather();
+  $('start').classList.add('hidden');$('end').classList.add('hidden');
+  $('hud').classList.remove('hidden');
+  $('bKill').classList.toggle('hidden',role!=='imp');$('bSab').classList.toggle('hidden',role!=='imp');$('bVent').classList.toggle('hidden',!(role==='imp'||pRole==='engineer'));$('bAbil').classList.toggle('hidden',!['scientist','sheriff','detective','shapeshifter','phantom'].includes(pRole));const ab={scientist:['📟','VITALS'],sheriff:['🔫','SHOOT'],detective:['🔍','SCAN'],shapeshifter:['🎭','SHIFT'],phantom:['👻','VANISH']}[pRole];if(ab){$('abilIc').textContent=ab[0];$('abilTxt').textContent=ab[1];G.abilName=ab[1]}
+  updateTaskHUD();
+  const P=ents[0];
+  const R0=ROLES[pRole],isI=role==='imp';
+  const html=`<div class="space" style="height:60px"></div>${botSVG(P.color,false,70)}<div class="ejs">${isI?'Shhh…':'Welcome aboard!'}</div><div class="role-big" style="color:${isI?'#ff5d5d':'#7ab8ff'}">${R0.e} You are the ${R0.n.toUpperCase()}</div><div class="ejs" style="max-width:320px;margin:0 auto">${R0.d}</div><div class="ejs" style="margin-top:8px">${isI?'Get rid of the crew without getting caught.':'There is <b style="color:#ff5d5d">1 Impostor</b> on board.'}</div>`;
+  alarm();
+  showMsg(html,3600,()=>{G.state='play'});
+}
+
+function gather(){
+  const al=G.ents.filter(e=>e.alive);
+  al.forEach((e,i)=>{const a=i/al.length*Math.PI*2-Math.PI/2;e.x=EMERG.x+Math.cos(a)*78;e.y=EMERG.y+Math.sin(a)*78;e.path=[];e.node=0;e.idle=.5+rnd()*2.5;e.witness=null;e.hidden=false;e.ventT=0;e.disguise=null;e.disguiseT=0;e.invis=false;e.invisT=0;});
+  $('shiftBar').classList.add('hidden');
+  G.inVent=null;$('ventBar').classList.add('hidden');
+}
+
+function planRandom(b){
+  let target=null;
+  if(b.isImp&&!b.isPlayer&&G.killCd<=4){const vs=G.ents.filter(e=>e.alive&&e!==b);const v=pick(vs);const r=roomOf(v.x,v.y);if(ROOMNODE[r]!=null)target=r;}
+  if(!target){const names=Object.keys(ROOMNODE).filter(n=>ROOMNODE[n]!==b.node);target=pick(names);}
+  const ns=bfs(b.node,ROOMNODE[target]);
+  b.path=ns.map(n=>({x:NODES[n][0],y:NODES[n][1],node:n}));
+  const R=ROOMS.find(r=>r.n===target);
+  b.path.push({x:R.x+30+rnd()*(R.w-60),y:R.y+30+rnd()*(R.h-60)});
+}
+
+function taskStats(){let done=0,total=0;for(const e of G.ents){if(e.isImp)continue;if(e.isPlayer){done+=G.pTasks.size;total+=TASKS.length}else{done+=e.tasks;total+=e.alive?TPB:e.tasks}}return{done,total}}
+
+/* ---------- input ---------- */
+const keys={};
+addEventListener('keydown',e=>{keys[e.key.toLowerCase()]=true;if(!G||G.state!=='play'||G.inTask)return;const k=e.key.toLowerCase();if(k==='e')$('bUse').click();if(k==='r')$('bReport').click();if(k==='q')$('bKill').click();if(k==='v')$('bVent').click();if(k==='f')$('bAbil').click();});
+addEventListener('keyup',e=>{keys[e.key.toLowerCase()]=false});
+let joy={id:null,x:0,y:0};
+const joyEl=$('joy'),knob=$('knob');
+function joyMove(e){const r=joyEl.getBoundingClientRect();let dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);const m=Math.hypot(dx,dy),max=45;if(m>max){dx=dx/m*max;dy=dy/m*max}joy.x=dx/max;joy.y=dy/max;knob.style.transform=`translate(${dx}px,${dy}px)`}
+joyEl.addEventListener('pointerdown',e=>{joy.id=e.pointerId;try{joyEl.setPointerCapture(e.pointerId)}catch(_){}joyMove(e)});
+joyEl.addEventListener('pointermove',e=>{if(e.pointerId===joy.id)joyMove(e)});
+const joyEnd=e=>{if(e.pointerId===joy.id){joy.id=null;joy.x=joy.y=0;knob.style.transform=''}};
+joyEl.addEventListener('pointerup',joyEnd);joyEl.addEventListener('pointercancel',joyEnd);
+
+/* ---------- update ---------- */
+function update(dt){
+  G.time+=dt;
+  if(G.sabotageCd>0)G.sabotageCd=Math.max(0,G.sabotageCd-dt);
+  if(G.sabotage){G.sabotage.left-=dt;updateTaskHUD();if(G.sabotage.left<=0){
+    const kind=G.sabotage.type;G.sabotage=null;
+    if(kind==='reactor'){end(G.role==='imp','☢️ Reactor meltdown!',G.role==='imp'?'The crew failed to stop the reactor.':'The reactor melted down before you could repair it.',G.ents.find(e=>e.isImp));return}
+    toast(kind==='lights'?'💡 Emergency lights restored.':'📡 Communications restored.');
+  }}
+  if(G.killCd>0)G.killCd=Math.max(0,G.killCd-dt);
+  if(G.flash>0)G.flash-=dt;
+  if(G.abilCd>0)G.abilCd=Math.max(0,G.abilCd-dt);
+  for(const e of G.ents){
+    if(e.disguiseT>0){e.disguiseT-=dt;if(e.disguiseT<=0){e.disguise=null;if(e.isPlayer){toast('🎭 Your disguise wore off!');G.abilCd=25}}}
+    if(e.invisT>0){e.invisT-=dt;if(e.invisT<=0){e.invis=false;if(e.isPlayer){toast('👻 You are visible again!');G.abilCd=25}}}
+  }
+  const P=G.ents[0];
+  // player move
+  if(G.remoteId!=null&&G.ents[G.remoteId]&&G.ents[G.remoteId].alive){const R=G.ents[G.remoteId],I=G.remoteInput||{x:0,y:0},m=Math.hypot(I.x,I.y);if(m>.08){const vx=I.x/Math.max(1,m),vy=I.y/Math.max(1,m),s=PSPEED*dt,nx=R.x+vx*s,ny=R.y+vy*s;if(canStand(nx,R.y))R.x=nx;if(canStand(R.x,ny))R.y=ny;R.dir={x:vx,y:vy};R.walk+=dt*11;}}
+  if(!G.inTask&&G.inVent==null){
+    let vx=joy.x,vy=joy.y;
+    if(keys['arrowleft']||keys['a'])vx-=1;if(keys['arrowright']||keys['d'])vx+=1;
+    if(keys['arrowup']||keys['w'])vy-=1;if(keys['arrowdown']||keys['s'])vy+=1;
+    const m=Math.hypot(vx,vy);
+    if(m>.12){if(m>1){vx/=m;vy/=m}const s=PSPEED*dt;const nx=P.x+vx*s;if(canStand(nx,P.y))P.x=nx;const ny=P.y+vy*s;if(canStand(P.x,ny))P.y=ny;const mm=Math.hypot(vx,vy);P.dir={x:vx/mm,y:vy/mm};P.walk+=dt*11*Math.min(1,m);}
+  }
+  // bots
+  for(const b of G.ents){
+    if(b.isPlayer||b.isRemote||!b.alive)continue;
+    if(b.hidden){b.ventT-=dt;if(b.ventT<=0)aiExitVent(b);continue}
+    if(b.path.length){
+      const p=b.path[0],dx=p.x-b.x,dy=p.y-b.y,d=Math.hypot(dx,dy),s=BSPEED*dt;
+      if(d<=s){b.x=p.x;b.y=p.y;if(p.node!=null)b.node=p.node;b.path.shift();if(p.vent!=null){aiEnterVent(b,p.vent);continue}if(!b.path.length)b.idle=2+rnd()*4;}
+      else{b.x+=dx/d*s;b.y+=dy/d*s;b.dir={x:dx/d,y:dy/d};b.walk+=dt*10;}
+    }else{
+      b.idle-=dt;
+      if(b.idle<=0){
+        if(!b.isImp&&b.tasks<TPB&&rnd()<.45){b.tasks++;updateTaskHUD();if(checkWin())return;}
+        planRandom(b);
+      }
+    }
+  }
+  // sightings log
+  G.sightT+=dt;
+  if(G.sightT>=1){G.sightT=0;
+    for(const b of G.ents){if(b.isPlayer||!b.alive||b.hidden)continue;for(const e of G.ents){if(e===b||!seenOK(e))continue;if(dist(b,e)<sightRange())G.sight.push({by:b.id,who:looks(e).id,room:roomOf(e.x,e.y),t:G.time})}}
+    G.sight=G.sight.filter(s=>G.time-s.t<60);
+  }
+  // AI impostor
+  if(G.role==='crew'&&G.killCd<=0){
+    const imp=G.ents.find(e=>e.isImp);
+    if(imp.alive&&!imp.hidden&&!imp.invis&&!imp.path.some(p=>p.vent!=null)){
+      for(const v of G.ents){
+        if(v===imp||!v.alive||dist(imp,v)>75)continue;
+        const risky=G.ents.some(o=>o!==imp&&o!==v&&o.alive&&!o.hidden&&(o.isPlayer?(dist(o,imp)<185):(dist(o,imp)<240||dist(o,v)<240)));
+        if(!risky){if(imp.role==='shapeshifter'&&imp.disguise==null){const c=G.ents.filter(e=>e.alive&&e!==imp&&e!==v);if(c.length){imp.disguise=pick(c).id;imp.disguiseT=12}}doKill(imp,v);if(G.state!=='play')return;break}
+      }
+    }
+  }
+  // pending witness report
+  if(G.pending){G.pending.t-=dt;if(G.pending.t<=0){const pr=G.pending;G.pending=null;if(pr.by.alive){if(pr.by.role==='sheriff'&&pr.by.witness){const t=G.ents[pr.by.witness.killer];if(t.alive&&dist(pr.by,t)<320){sheriffShoot(pr.by,t);if(G.state!=='play')return;pr.by.witness=null}}if(pr.by.alive){callMeeting(pr.by,pr.body);return}}}}
+  // bots find bodies
+  for(const b of G.ents){if(b.isPlayer||!b.alive||b.isImp)continue;for(const bd of G.bodies){if(dist(b,bd)<150){callMeeting(b,bd);return}}}
+  // what's near the player
+  const n={task:null,emerg:false,body:null,kill:null,fix:false};
+  if(G.role==='crew'&&!(G.sabotage&&G.sabotage.type==='comms')){let bd=60;for(const t of TASKS){if(G.pTasks.has(t.id))continue;const d=dist(P,t);if(d<bd){bd=d;n.task=t}}}
+  if(dist(P,EMERG)<95&&G.emergencies>0)n.emerg=true;
+  if(G.role==='crew'&&G.sabotage&&G.sabotage.type==='reactor'&&dist(P,{x:145,y:400})<105)n.fix=true;
+  for(const bd of G.bodies)if(dist(P,bd)<95){n.body=bd;break}
+  if(G.role==='imp'&&G.inVent==null&&!P.invis){let bd=78;for(const e of G.ents){if(e.isPlayer||!e.alive||e.hidden)continue;const d=dist(P,e);if(d<bd){bd=d;n.kill=e}}}
+  G.near=n;
+  if(G.inVent==null){let bd=90;for(const e of G.ents){if(e.isPlayer||!e.alive||e.hidden)continue;const d=dist(P,e);if(d<bd){bd=d;n.abil=e}}}
+  {let bv=null,bd=50;VENTS.forEach((v,i)=>{const d=dist(P,v);if(d<bd){bd=d;bv=i}});n.vent=bv;}
+  updateHUD();
+}
+
+function doKill(k,v){
+  v.alive=false;
+  const room=roomOf(v.x,v.y);
+  const body={x:v.x,y:v.y,color:v.color,id:v.id,name:v.name,room,t:G.time};
+  G.bodies.push(body);
+  G.killCd=k.isPlayer?KILL_CD_P:KILL_CD_AI;
+  const P=G.ents[0];
+  if(v.isPlayer){
+    beep(90,.5,'sawtooth',.08);G.flash=.6;
+    closeMini();
+    setTimeout(()=>end(false,'You were eliminated!',`${k.name} sneaked up on you. ${k.name} was the Impostor.`,k),700);
+    G.state='over';return;
+  }
+  // witnesses (bots)
+  for(const o of G.ents){if(o.isPlayer||!o.alive||o.hidden||o===k)continue;if(dist(o,v)<sightRange()||dist(o,k)<sightRange()){o.witness={killer:looks(k).id,victim:v.id};if(!G.pending)G.pending={by:o,body,t:1.1}}}
+  if(k.isPlayer){beep(120,.25,'sawtooth',.07);G.flash=.25;if(G.pending)toast(`👀 ${G.pending.by.name} saw you!`);}
+  else if(dist(P,v)<250){G.flash=.35;beep(100,.3,'sawtooth',.07);toast(`😱 You saw ${looks(k).name} attack ${v.name}! Report it!`);}
+  if(G.pRole==='scientist'&&!v.isPlayer){toast(`📟 Vitals alert: ${v.name}'s heartbeat just stopped!`);beep(900,.1,'sine',.06);setTimeout(()=>beep(900,.4,'sine',.06),160)}
+  if(!k.isPlayer&&k.role==='phantom'){k.invis=true;k.invisT=6}
+  else if(!k.isPlayer&&!G.pending&&rnd()<.7){const r=roomOf(k.x,k.y);const vi=VENTS.findIndex(vv=>vv.room===r);if(vi>=0){k.path=[{x:VENTS[vi].x,y:VENTS[vi].y,vent:vi}];k.idle=0}}
+  updateTaskHUD();
+  checkWin();
+}
+function sheriffShoot(s,t){
+  const P=G.ents[0];beep(1200,.06,'square',.08);setTimeout(()=>beep(200,.2,'sawtooth',.07),60);
+  const room=roomOf(t.x,t.y);
+  if(t.isImp){
+    t.alive=false;G.bodies.push({x:t.x,y:t.y,color:t.color,id:t.id,name:t.name,room,t:G.time});
+    G.impDeathWhy=s.isPlayer?`Bullseye! You shot ${t.name}, the Impostor!`:`${s.name} (the Sheriff 🤠) shot ${t.name}, the Impostor!`;
+    if(t.isPlayer){G.flash=.6;closeMini();G.state='over';setTimeout(()=>end(false,'The Sheriff got you!',`${s.name} was the Sheriff and saw what you did. 🤠`,t),700);return}
+    checkWin();return;
+  }
+  // wrong target: sheriff is out
+  s.alive=false;G.bodies.push({x:s.x,y:s.y,color:s.color,id:s.id,name:s.name,room:roomOf(s.x,s.y),t:G.time});
+  if(s.isPlayer){G.flash=.6;G.state='over';const imp=G.ents.find(e=>e.isImp);setTimeout(()=>end(false,'Wrong target!',`${t.name} was innocent, so the Sheriff (you) is out. The Impostor was ${imp.name}.`,imp),700);return}
+  if(dist(P,s)<260)toast(`💥 ${s.name} (the Sheriff) shot at ${t.name}… but ${t.name} was innocent! The Sheriff is out.`);
+  updateTaskHUD();checkWin();
+}
+function playerAbility(){
+  if(!G||G.state!=='play')return;const P=G.ents[0],r=G.pRole,n=G.near;
+  if(r==='scientist'){showVitals();return}
+  if(r==='shapeshifter'&&P.disguise!=null){P.disguise=null;P.disguiseT=0;G.abilCd=25;toast('🎭 You shifted back.');return}
+  if(G.abilCd>0)return;
+  if(r==='sheriff'){if(!n.abil)return;sheriffShoot(P,n.abil);G.abilCd=20;return}
+  if(r==='detective'){if(!n.abil)return;const t=n.abil;G.scans[t.id]=t.isImp;G.abilCd=35;beep(700,.1,'sine',.06);toast(t.isImp?`🔍 ${t.name} is the IMPOSTOR! 🚨 Tell everyone in a meeting!`:`🔍 ${t.name} is innocent. ✅`);return}
+  if(r==='phantom'){if(G.inVent!=null)return;P.invis=true;P.invisT=7;beep(300,.3,'sine',.05);toast('👻 You vanished! Nobody can see you for 7 seconds.');return}
+  if(r==='shapeshifter'){
+    const bar=$('shiftBar');if(!bar.classList.contains('hidden')){bar.classList.add('hidden');return}
+    const opts=G.ents.filter(e=>!e.isPlayer&&e.alive);
+    bar.innerHTML='<div class="vt-t">🎭 Shift into…</div>'+opts.map(e=>`<button data-id="${e.id}" style="background:${e.color}">${e.name}</button>`).join('');
+    bar.querySelectorAll('button').forEach(b=>b.onclick=()=>{if(!G||G.state!=='play')return;P.disguise=+b.dataset.id;P.disguiseT=15;bar.classList.add('hidden');beep(400,.2,'triangle',.06);toast(`🎭 You look like ${G.ents[P.disguise].name} for 15 seconds!`)});
+    bar.classList.remove('hidden');
+  }
+}
+function showVitals(){
+  G.inTask=true;G.miniTok={alive:true};
+  $('miniTitle').textContent='📟 Vitals';
+  $('miniBody').innerHTML='<div style="display:grid;grid-template-columns:1fr 1fr;gap:6px">'+G.ents.map(e=>`<div class="pc ${e.alive?'':'dead'}">${botSVG(e.color,!e.alive,24)}<div><div class="nm">${e.name}${e.isPlayer?' (you)':''}</div><div style="font-size:12px;color:${e.alive?'#5be38f':'#ff6b6b'}">${e.alive?'💚 OK':'💀 DEAD'}</div></div></div>`).join('')+'</div><p class="hint">Vitals show who is alive, but not where they are.</p>';
+  $('mini').classList.remove('hidden');
+}
+/* ---------- vents ---------- */
+function ventSeen(actor,vi){
+  const v=VENTS[vi],P=G.ents[0];let seenBy=null;if(actor.invis)return;
+  for(const o of G.ents){if(o.isPlayer||!o.alive||o.hidden||o===actor)continue;if(dist(o,v)<sightRange()){o.witness={killer:looks(actor).id,vent:true};seenBy=seenBy||o;if(!G.pending)G.pending={by:o,body:null,t:1.2}}}
+  if(actor.isPlayer){if(seenBy)toast(`👀 ${seenBy.name} saw you use the vent!`)}
+  else if(G.role==='crew'&&dist(P,v)<250){toast(`😱 You saw ${looks(actor).name} use a vent! Only the Impostor can do that… or an Engineer?`);beep(140,.3,'sawtooth',.06)}
+}
+function aiEnterVent(b,vi){b.hidden=true;b.ventVi=vi;b.ventT=1.5+rnd()*2;b.path=[];ventSeen(b,vi)}
+function aiExitVent(b){
+  const links=VENTS[b.ventVi].links;
+  const safe=links.filter(i=>!G.ents.some(o=>o!==b&&o.alive&&!o.hidden&&dist(o,VENTS[i])<240));
+  if(!safe.length&&b.ventT>-6){b.ventT=1;return}
+  const vi=pick(safe.length?safe:links),v=VENTS[vi];
+  b.x=v.x;b.y=v.y;b.hidden=false;b.node=ROOMNODE[v.room];b.path=[];b.idle=1+rnd()*2;
+  ventSeen(b,vi);
+}
+function playerVent(){
+  const P=G.ents[0];
+  if(G.inVent==null){const vi=G.near.vent;if(vi==null)return;G.inVent=vi;P.hidden=true;P.x=VENTS[vi].x;P.y=VENTS[vi].y;beep(180,.15,'triangle',.08);ventSeen(P,vi)}
+  else{const vi=G.inVent;G.inVent=null;P.hidden=false;beep(220,.15,'triangle',.08);ventSeen(P,vi)}
+  renderVentBar();
+}
+function ventTo(vi){const P=G.ents[0];G.inVent=vi;P.x=VENTS[vi].x;P.y=VENTS[vi].y;beep(260,.08,'triangle',.06);renderVentBar()}
+function renderVentBar(){
+  const bar=$('ventBar');
+  if(G.inVent==null){bar.classList.add('hidden');return}
+  const v=VENTS[G.inVent];
+  bar.innerHTML=`<div class="vt-t">🕳️ In the ${v.room} vent</div>`+v.links.map(i=>`<button data-v="${i}">➜ ${VENTS[i].room}</button>`).join('')+`<button data-x="1" style="background:#7a2a36;border-color:#a8495a">⬆ Jump out</button>`;
+  bar.querySelectorAll('button').forEach(b=>b.onclick=()=>{if(!G||G.state!=='play')return;if(b.dataset.x)playerVent();else ventTo(+b.dataset.v)});
+  bar.classList.remove('hidden');
+}
+
+/* ---------- HUD ---------- */
+function updateTaskHUD(){
+  if(!G)return;
+  const {done,total}=taskStats();
+  $('tbar').style.width=(total?done/total*100:0)+'%';
+  const P=G.ents[0];
+  let html;
+  if(G.role==='imp'){
+    const crew=G.ents.filter(e=>!e.isImp&&e.alive).length;
+    html=`<div class="imp">${ROLES[G.pRole].e} You are the ${ROLES[G.pRole].n}</div>Crew left: <b>${crew}</b><br><span style="opacity:.8">Kill when no one's watching. Stop them finishing tasks!</span>`;
+  }else{
+    html=`<b>${ROLES[G.pRole].e} ${ROLES[G.pRole].n}</b> · tasks<br>`+TASKS.map(t=>`<div class="${G.pTasks.has(t.id)?'done':''}">${G.pTasks.has(t.id)?'✅':'⬜'} ${t.room}: ${t.name}</div>`).join('');
+  }
+  if(G.sabotage){html+=`<div class="imp">⚠ ${G.sabotage.label}: ${Math.ceil(G.sabotage.left)}s</div>`;if(G.sabotage.type==='comms')html+='<div>📡 Task systems disrupted</div>';}
+  if(html!==G.taskSig){$('tasks').innerHTML=html;G.taskSig=html}
+}
+function updateHUD(){
+  const n=G.near,P=G.ents[0];
+  if(NET.mode==='guest'){$('bUse').classList.add('on');$('bReport').classList.add('on');$('useTxt').textContent='USE';}
+  $('bUse').classList.toggle('on',!!(n.task||n.emerg||n.fix));
+  $('useTxt').textContent=n.fix?'FIX':n.emerg&&!n.task?'MEETING':'USE';
+  $('bReport').classList.toggle('on',!!n.body);
+  {$('bVent').classList.toggle('on',n.vent!=null||G.inVent!=null);$('ventTxt').textContent=G.inVent!=null?'EXIT':'VENT';
+   if(G.abilName){const r=G.pRole;let on=false,txt=G.abilName;
+     if(r==='scientist')on=true;
+     else if(r==='shapeshifter'&&P.disguise!=null){on=true;txt=Math.ceil(P.disguiseT)+'s ↩'}
+     else if(r==='phantom'&&P.invis){txt=Math.ceil(P.invisT)+'s'}
+     else if(G.abilCd>0)txt=Math.ceil(G.abilCd)+'s';
+     else on=(r==='sheriff'||r==='detective')?!!n.abil:G.inVent==null;
+     $('bAbil').classList.toggle('on',on);$('abilTxt').textContent=txt;}}
+  if(G.role==='imp'){$('bSab').classList.toggle('on',!G.sabotage&&G.sabotageCd<=0);$('bSab').querySelector('span:last-child').textContent=G.sabotage?Math.ceil(G.sabotage.left)+'s':G.sabotageCd>0?Math.ceil(G.sabotageCd)+'s':'SABOTAGE';$('bKill').classList.toggle('on',!!n.kill&&G.killCd<=0);$('killTxt').textContent=G.killCd>0?Math.ceil(G.killCd)+'s':'KILL';}
+  $('roomLbl').textContent='📍 '+roomOf(P.x,P.y);
+  if(G.role==='imp')updateTaskHUD();
+}
+let toastT=null;
+function toast(t){const el=$('toast');el.textContent=t;el.classList.add('show');clearTimeout(toastT);toastT=setTimeout(()=>el.classList.remove('show'),2600)}
+
+$('bUse').onclick=()=>{if(NET.mode==='guest'){sendNet({type:'action',action:'use'});return}if(!G||G.state!=='play'||G.inTask)return;const n=G.near;if(n.fix){G.sabotage=null;toast('✅ Reactor stabilized!');beep(900,.2,'sine',.07);updateTaskHUD()}else if(n.task)openMini(n.task);else if(n.emerg){G.emergencies--;callMeeting(G.ents[0],null)}};
+$('bReport').onclick=()=>{if(NET.mode==='guest'){sendNet({type:'action',action:'report'});return}if(!G||G.state!=='play'||G.inTask)return;if(G.near.body)callMeeting(G.ents[0],G.near.body)};
+$('bAbil').onclick=playerAbility;
+$('bVent').onclick=()=>{if(!G||G.state!=='play'||!(G.role==='imp'||G.pRole==='engineer'))return;if(G.ents[0].invis)return;if(G.inVent!=null||G.near.vent!=null)playerVent()};
+$('bKill').onclick=()=>{if(!G||G.state!=='play'||G.role!=='imp')return;if(G.near.kill&&G.killCd<=0)doKill(G.ents[0],G.near.kill)};
+$('bSab').onclick=()=>{
+  if(!G||G.state!=='play'||G.role!=='imp'||G.sabotage||G.sabotageCd>0)return;
+  const types=[{type:'lights',label:'LIGHTS OUT',left:18},{type:'comms',label:'COMMS DOWN',left:20},{type:'reactor',label:'REACTOR MELTDOWN',left:25}];
+  const next=types[(G.sabIndex||0)%types.length];G.sabIndex=(G.sabIndex||0)+1;
+  G.sabotage={...next};G.sabotageCd=28;toast('🚨 '+next.label+'! Crew must respond!');alarm();updateTaskHUD();
+};
+
+/* ---------- mini games ---------- */
+function openMini(t){
+  G.inTask=true;const tok={alive:true};G.miniTok=tok;
+  $('miniTitle').textContent='🔧 '+t.name;const body=$('miniBody');body.innerHTML='';
+  $('mini').classList.remove('hidden');
+  const done=()=>{if(!tok.alive)return;tok.alive=false;G.pTasks.add(t.id);beep(880,.15,'sine',.08);setTimeout(()=>beep(1320,.2,'sine',.06),120);body.innerHTML='<div class="okmsg">✓ Task complete!</div>';updateTaskHUD();setTimeout(()=>{if(G.miniTok===tok)closeMini();checkWin()},700)};
+  MINIS[t.type](body,done,tok,t);
+}
+function closeMini(){if(G&&G.miniTok)G.miniTok.alive=false;$('mini').classList.add('hidden');if(G)G.inTask=false}
+$('miniX').onclick=closeMini;
+function badFx(el){if(!el)return;el.classList.remove('bad');void el.offsetWidth;el.classList.add('bad');beep(150,.15)}
+
+const MINIS={
+  wires(body,done){
+    const cols=['#e5484d','#3e63dd','#f5d90a','#e93d82'];const R=shuffle([0,1,2,3]);
+    body.innerHTML='<div class="wires" id="wbox"><svg id="wsvg"></svg><div class="wcol">'+cols.map((c,i)=>`<button class="wire" data-s="L" data-i="${i}" style="--c:${c}"></button>`).join('')+'</div><div class="wcol">'+R.map(i=>`<button class="wire r" data-s="R" data-i="${i}" style="--c:${cols[i]}"></button>`).join('')+'</div></div><p class="hint">Tap a wire on the left, then the same colour on the right.</p>';
+    let sel=null,n=0;const box=body.querySelector('#wbox'),svg=body.querySelector('#wsvg');
+    body.querySelectorAll('.wire').forEach(b=>b.onclick=()=>{
+      if(b.classList.contains('ok'))return;const i=+b.dataset.i;
+      if(b.dataset.s==='L'){body.querySelectorAll('.wire.sel').forEach(x=>x.classList.remove('sel'));sel=b;b.classList.add('sel');beep(500,.05);return}
+      if(!sel)return;
+      if(+sel.dataset.i===i){const br=box.getBoundingClientRect(),a=sel.getBoundingClientRect(),c=b.getBoundingClientRect();
+        svg.insertAdjacentHTML('beforeend',`<line x1="${a.right-br.left}" y1="${a.top+a.height/2-br.top}" x2="${c.left-br.left}" y2="${c.top+c.height/2-br.top}" stroke="${cols[i]}" stroke-width="9" stroke-linecap="round"/>`);
+        sel.classList.add('ok');sel.classList.remove('sel');b.classList.add('ok');sel=null;n++;beep(700,.08);if(n===4)setTimeout(done,350)}
+      else badFx(b);
+    });
+  },
+  nums(body,done){
+    const ord=shuffle([1,2,3,4,5,6,7,8,9,10]);let next=1;
+    body.innerHTML='<div class="grid">'+ord.map(n=>`<button class="num" data-n="${n}">${n}</button>`).join('')+'</div><p class="hint">Tap 1 to 10 in order to restart the reactor.</p>';
+    const btns=[...body.querySelectorAll('.num')],grid=body.querySelector('.grid');
+    btns.forEach(b=>b.onclick=()=>{const n=+b.dataset.n;if(n<next)return;if(n===next){b.classList.add('lit');next++;beep(300+n*60,.06);if(next>10)setTimeout(done,250)}else{next=1;btns.forEach(x=>x.classList.remove('lit'));badFx(grid)}});
+  },
+  hold(body,done,tok,t){
+    body.innerHTML=`<div class="hbar"><div id="hfill"></div></div><div class="hpct" id="hpct">0%</div><button class="holdbtn" id="hbtn">HOLD</button><p class="hint">Press and hold the button until it reaches 100%.</p>`;
+    let p=0,hold=false,last=performance.now();const f=body.querySelector('#hfill'),pc=body.querySelector('#hpct'),b=body.querySelector('#hbtn');
+    b.onpointerdown=e=>{hold=true;b.classList.add('on');try{b.setPointerCapture(e.pointerId)}catch(_){}};
+    const up=()=>{hold=false;b.classList.remove('on')};b.onpointerup=up;b.onpointercancel=up;
+    (function tick(now){if(!tok.alive)return;const dt=Math.min(.1,(now-last)/1000);last=now;if(hold)p=Math.min(1,p+dt/3.5);f.style.width=p*100+'%';pc.textContent=(hold?t.label+' ':'')+Math.floor(p*100)+'%';if(p>=1){done();return}requestAnimationFrame(tick)})(last);
+  },
+  cal(body,done,tok){
+    body.innerHTML=`<div class="cbar" id="cbar"><div id="czone"></div><div id="cmark"></div></div><div class="hpct" id="cct">0 / 3</div><button class="holdbtn" id="cbtn">STOP</button><p class="hint">Tap STOP when the white marker is inside the green zone. 3 times!</p>`;
+    let x=0,dir=1,sp=.55,hits=0,zs=0,zw=.22;const z=body.querySelector('#czone'),m=body.querySelector('#cmark'),ct=body.querySelector('#cct'),bar=body.querySelector('#cbar');
+    const newZone=()=>{zw=Math.max(.12,.22-hits*.04);zs=.05+rnd()*(.9-zw);z.style.left=zs*100+'%';z.style.width=zw*100+'%'};newZone();
+    body.querySelector('#cbtn').onclick=()=>{if(x>=zs&&x<=zs+zw){hits++;ct.textContent=hits+' / 3';beep(700,.08);if(hits>=3){done();return}sp+=.25;newZone()}else badFx(bar)};
+    let last=performance.now();
+    (function tick(now){if(!tok.alive)return;const dt=Math.min(.1,(now-last)/1000);last=now;x+=dir*sp*dt;if(x>1){x=1;dir=-1}if(x<0){x=0;dir=1}m.style.left=x*100+'%';requestAnimationFrame(tick)})(last);
+  }
+};
+
+/* ---------- meetings ---------- */
+function callMeeting(rep,body){
+  if(G.state!=='play')return;
+  G.state='meeting';closeMini();
+  joy.id=null;joy.x=joy.y=0;knob.style.transform='';
+  alarm();
+  const nm=id=>G.ents[id].name;
+  const alive=G.ents.filter(e=>e.alive);
+  const sus={};G.ents.forEach(e=>sus[e.id]=0);
+  const lines=[];
+  const vRoom=body?body.room:null,dT=body?body.t:G.time;
+  lines.push({who:rep.id,txt:body?`I found ${body.name}'s body in ${inR(vRoom)}! 💀`:(rep.witness&&rep.witness.vent?`EMERGENCY! I have to tell you what I just saw… 🚨`:`I called an emergency meeting! 🚨`)});
+  const roomNames=Object.keys(ROOMNODE);
+  for(const b of shuffle(alive.filter(e=>!e.isPlayer&&e!==rep).concat(rep.isPlayer?[]:[rep]))){
+    if(b.isImp){
+      const acc=lines.find(l=>l.target===b.id);
+      const fake=pick(roomNames.filter(r=>r!==vRoom));
+      if(acc){lines.push({who:b.id,txt:`That's a lie! I was in ${fake} the whole time. ${nm(acc.who)} is framing me!`,target:acc.who});sus[acc.who]+=1.5;}
+      else if(body&&rnd()<.6){const t=pick(alive.filter(e=>!e.isImp&&e.id!==b.id));lines.push({who:b.id,txt:`${nm(t.id)} was acting really sus near ${inR(vRoom)}… 🤔`,target:t.id});sus[t.id]+=1.5;}
+      else lines.push({who:b.id,txt:`I was doing tasks in ${fake}. Didn't see anything.`});
+      continue;
+    }
+    if(b.witness&&b.witness.vent){const k=b.witness.killer;sus[k]+=6;lines.push({who:b.id,txt:`I SAW ${nm(k).toUpperCase()} USE A VENT!! 🕳️ Crewmates can't do that. It's ${nm(k)}!`,target:k});continue;}
+    if(body&&b.witness&&b.witness.victim===body.id){const k=b.witness.killer;sus[k]+=6;lines.push({who:b.id,txt:`I SAW ${nm(k).toUpperCase()} DO IT!! It's ${nm(k)}! 😡`,target:k});continue;}
+    if(body){
+      const s=G.sight.filter(s=>s.by===b.id&&s.room===vRoom&&s.who!==b.id&&s.who!==body.id&&G.ents[s.who].alive&&Math.abs(s.t-dT)<=15).sort((a,c)=>Math.abs(a.t-dT)-Math.abs(c.t-dT))[0];
+      if(s){sus[s.who]+=2;lines.push({who:b.id,txt:`I saw ${nm(s.who)} in ${inR(vRoom)} right before. Suspicious…`,target:s.who});continue;}
+      const al=G.sight.filter(s=>s.by===b.id&&s.room!==vRoom&&s.who!==b.id&&G.ents[s.who].alive&&Math.abs(s.t-dT)<=6)[0];
+      if(al){sus[al.who]-=1.5;lines.push({who:b.id,txt:`I was with ${nm(al.who)} in ${inR(al.room)}. ${nm(al.who)} is safe.`});continue;}
+      lines.push({who:b.id,txt:`I was in ${inR(roomOf(b.x,b.y))}. Didn't see anything.`});
+    }else{
+      lines.push({who:b.id,txt:pick(['Why did we call a meeting?','Anyone acting sus?','I was just doing my tasks.','No idea who it is yet.','Let\'s skip unless someone has proof.'])});
+    }
+  }
+  G.meet={lines,sus,shown:1,acc:0,sel:null,pVote:undefined,accused:false,timer:45,resolved:false,open:false};
+  const splash=body?`<div class="ejt" style="color:#ff5d5d;font-size:30px">💀 DEAD BODY REPORTED</div><div class="ejs">${rep.isPlayer?'You':rep.name} found ${body.name}</div>`:`<div class="ejt" style="color:#ffcf5c;font-size:30px">🚨 EMERGENCY MEETING</div><div class="ejs">Called by ${rep.isPlayer?'you':rep.name}</div>`;
+  showMsg(splash,1600,openMeeting);
+}
+function openMeeting(){
+  const m=G.meet;m.open=true;
+  $('meet').classList.remove('hidden');$('mTitle').textContent='Who is the Impostor?';
+  ['bAccuse','bVote','bSkip'].forEach(id=>$(id).disabled=false);
+  $('skipRow').innerHTML='';
+  renderChat();renderCards();
+}
+function renderChat(){
+  const m=G.meet,c=$('chat');
+  c.innerHTML=m.lines.slice(0,m.shown).map(l=>{const e=G.ents[l.who];return `<div class="ln"><span class="dot" style="background:${e.color}"></span><b style="color:${shade(e.color,.25)}">${e.name}${e.isPlayer?' (you)':''}:</b> ${l.txt}</div>`}).join('');
+  c.scrollTop=c.scrollHeight;
+}
+function renderCards(votes){
+  const m=G.meet;
+  $('cards').innerHTML=G.ents.map(e=>{
+    const v=votes&&votes[e.id]?votes[e.id].map(id=>`<i style="background:${G.ents[id].color}"></i>`).join(''):'';
+    const sc=G.scans[e.id];const st=(!e.alive?'💀 dead':(m.pVote===e.id?'🗳 your vote':''))+(sc===undefined?'':sc?'<span class="badge" style="background:#a3202f">🔍 IMPOSTOR</span>':'<span class="badge" style="background:#1e7a48">🔍 clear</span>');
+    return `<button class="pc ${e.alive?'':'dead'} ${m.sel===e.id?'sel':''}" data-id="${e.id}">${botSVG(e.color,!e.alive,26)}<div><div class="nm">${e.name}${e.isPlayer?' (you)':''}</div><div style="font-size:11px;opacity:.75">${st}</div><div class="vt">${v}</div></div></button>`}).join('');
+  $('cards').querySelectorAll('.pc').forEach(b=>b.onclick=()=>{const id=+b.dataset.id,e=G.ents[id];if(!e.alive||e.isPlayer||m.pVote!==undefined)return;m.sel=id;beep(520,.05);renderCards()});
+  if(votes&&votes.skip)$('skipRow').innerHTML='Skipped: '+votes.skip.map(id=>`<i style="background:${G.ents[id].color}"></i>`).join('');
+}
+$('bAccuse').onclick=()=>{const m=G&&G.meet;if(!m||m.resolved)return;if(m.sel==null){toastMeet('Tap a player first, then Accuse.');return}if(m.accused){toastMeet('You already said your piece!');return}
+  m.accused=true;m.sus[m.sel]+=G.role==='crew'?2.5:2;m.lines.splice(m.shown,0,{who:0,txt:pick([`I think it's ${G.ents[m.sel].name}! 👉`,`${G.ents[m.sel].name} is super sus!`,`Vote ${G.ents[m.sel].name}, trust me.`]),target:m.sel});m.shown++;renderChat();$('bAccuse').disabled=true;beep(600,.06)};
+$('bVote').onclick=()=>{const m=G&&G.meet;if(!m||m.pVote!==undefined)return;if(m.sel==null){toastMeet('Tap a player to vote for them.');return}m.pVote=m.sel;lockVote()};
+$('bSkip').onclick=()=>{const m=G&&G.meet;if(!m||m.pVote!==undefined)return;m.pVote='skip';m.sel=null;lockVote()};
+function lockVote(){['bAccuse','bVote','bSkip'].forEach(id=>$(id).disabled=true);$('mTitle').textContent='Waiting for others to vote…';beep(400,.08);renderCards()}
+function toastMeet(t){$('mTitle').textContent=t;setTimeout(()=>{if(G&&G.meet&&G.meet.pVote===undefined&&!G.meet.resolved)$('mTitle').textContent='Who is the Impostor?'},1600)}
+function meetTick(dt){
+  const m=G.meet;if(m.resolved)return;
+  m.timer-=dt;$('mTimer').textContent='⏱ '+Math.max(0,Math.ceil(m.timer))+'s';
+  m.acc+=dt;
+  const gap=m.pVote!==undefined?.45:1.3;
+  if(m.shown<m.lines.length&&m.acc>gap){m.shown++;m.acc=0;renderChat();beep(320,.03,'sine',.03)}
+  if(m.timer<=0&&m.pVote===undefined){m.pVote='skip';lockVote()}
+  if(m.pVote!==undefined&&m.shown>=m.lines.length)resolveVotes();
+}
+function resolveVotes(){
+  const m=G.meet;m.resolved=true;
+  const votes={};const add=(t,v)=>{(votes[t]=votes[t]||[]).push(v)};
+  add(m.pVote,0);
+  const alive=G.ents.filter(e=>e.alive);
+  for(const b of alive){
+    if(b.isPlayer)continue;
+    let best=null,bs=-1e9;
+    for(const e of alive){if(e===b)continue;let sc=m.sus[e.id];if(!b.isImp){sc+=rnd()*1.2;if(b.witness&&b.witness.killer===e.id)sc+=10}else if(e.isPlayer)sc+=.5;if(sc>bs){bs=sc;best=e.id}}
+    add(bs>=(b.isImp?1:2)?best:'skip',b.id);
+  }
+  let best=null,bc=0,tie=false;
+  for(const k in votes){if(k==='skip')continue;const c=votes[k].length;if(c>bc){bc=c;best=+k;tie=false}else if(c===bc)tie=true}
+  const skipC=(votes.skip||[]).length;
+  const ej=(best!=null&&!tie&&bc>skipC)?best:null;
+  $('mTitle').textContent='🗳 Votes are in!';$('mTimer').textContent='';
+  renderCards(votes);
+  setTimeout(()=>{$('meet').classList.add('hidden');showEject(ej,tie&&bc>=skipC)},2800);
+}
+function showEject(ej,tie){
+  let html;
+  if(ej==null)html=`<div class="space"></div><div class="ejt">No one was ejected.</div><div class="ejs">${tie?'It was a tie!':'The crew skipped the vote.'}</div>`;
+  else{const e=G.ents[ej];html=`<div class="space"><div class="floaty">${botSVG(e.color,false,50)}</div></div><div class="ejt">${e.isPlayer?'You were':e.name+' was'} ${e.isImp?'':'not '}the Impostor.</div><div class="ejs">${e.isImp?'0 Impostors remain.':'1 Impostor remains.'}</div>`;beep(200,.6,'sine',.05)}
+  showMsg(html,3800,()=>afterEject(ej));
+}
+function afterEject(ej){
+  const imp=G.ents.find(e=>e.isImp);
+  if(ej!=null){const e=G.ents[ej];e.alive=false;
+    if(e.isPlayer&&G.role==='crew'){end(false,'You were voted out!',`You weren't the Impostor. It was ${imp.name} all along.`,imp);return}
+    if(e.isPlayer&&G.role==='imp'){end(false,'You got caught!','The crew voted you out. Crewmates win this time.',imp);return}
+  }
+  G.meet=null;
+  updateTaskHUD();
+  if(checkWin())return;
+  gather();G.bodies=[];G.pending=null;G.killCd=G.role==='imp'?KILL_CD_P:KILL_CD_AI;G.state='play';
+}
+
+/* ---------- win / end ---------- */
+function checkWin(){
+  if(!G||G.state==='over')return true;
+  const imp=G.ents.find(e=>e.isImp);
+  const crewAlive=G.ents.filter(e=>!e.isImp&&e.alive).length;
+  const {done,total}=taskStats();
+  let crewWon=null,why='';
+  if(!imp.alive){crewWon=true;why=G.impDeathWhy||`${imp.name} was the Impostor and got voted out!`}
+  else if(crewAlive<=1){crewWon=false;why=G.role==='imp'?'You eliminated the crew. Nobody suspected a thing!':`${imp.name} was the Impostor and took over the ship.`}
+  else if(done>=total){crewWon=true;why=G.role==='imp'?'The crew finished all their tasks before you could stop them.':'All tasks are done! The ship is saved.'}
+  if(crewWon===null)return false;
+  const pWon=(G.role==='crew')===crewWon;
+  end(pWon,crewWon?'Crewmates win! 🎉':'Impostor wins! 🔪',why,imp);
+  return true;
+}
+function end(won,title,sub,imp){
+  if(G)G.state='over';closeMini();
+  $('meet').classList.add('hidden');$('msg').classList.add('hidden');
+  $('hud').classList.add('hidden');
+  $('endTitle').textContent=(won?'VICTORY':'DEFEAT');
+  $('endTitle').style.background=won?'linear-gradient(90deg,#5be38f,#7ab8ff)':'linear-gradient(90deg,#ff5d5d,#ff9f5d)';
+  $('endTitle').style.webkitBackgroundClip='text';$('endTitle').style.backgroundClip='text';
+  $('endBot').innerHTML=(imp?`${botSVG(imp.color,false,60)}<div style="font-size:13px;color:#ff8a8a;font-weight:800">Impostor: ${imp.name}${imp.isPlayer?' (you)':''}</div>`:'')+`<div class="rolelist" style="margin-bottom:12px">${G.ents.map(e=>`<div><span class="dot" style="background:${e.color}"></span><b>${e.name}${e.isPlayer?' (you)':''}</b> ${ROLES[e.role].e} ${ROLES[e.role].n}${e.alive?'':' 💀'}</div>`).join('')}</div>`;
+  $('endSub').innerHTML=`<b>${title}</b><br>${sub}`;
+  $('end').classList.remove('hidden');
+  won?[523,659,784,1046].forEach((f,i)=>setTimeout(()=>beep(f,.18,'sine',.07),i*140)):[300,250,200].forEach((f,i)=>setTimeout(()=>beep(f,.25,'sawtooth',.05),i*200));
+}
+let msgT=null;
+function showMsg(html,ms,cb){$('msgIn').innerHTML=html;$('msg').classList.remove('hidden');clearTimeout(msgT);msgT=setTimeout(()=>{$('msg').classList.add('hidden');if(G&&G.state!=='over')cb&&cb()},ms)}
+
+/* ---------- drawing ---------- */
+function drawBot(e,label,C){
+  ctx.save();ctx.translate(e.x,e.y);
+  ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(0,17,15,5,0,0,7);ctx.fill();
+  const f=Math.sin(e.walk)*3,bob=Math.abs(Math.sin(e.walk))*2;
+  ctx.fillStyle=shade(C,-.4);
+  ctx.beginPath();ctx.ellipse(-7+f*.6,15,5,3.6,0,0,7);ctx.fill();
+  ctx.beginPath();ctx.ellipse(7-f*.6,15,5,3.6,0,0,7);ctx.fill();
+  ctx.translate(0,-bob);
+  ctx.strokeStyle='#cdd3ee';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,-14);ctx.lineTo(e.dir.x*3,-26);ctx.stroke();
+  ctx.fillStyle=C;ctx.beginPath();ctx.arc(e.dir.x*3,-27,3.6,0,7);ctx.fill();
+  ctx.beginPath();ctx.arc(0,0,16,0,7);ctx.fillStyle=C;ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='rgba(0,0,0,.35)';ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.22)';ctx.beginPath();ctx.ellipse(-7,-9,5,3,-.6,0,7);ctx.fill();
+  const ex=e.dir.x*2.2,ey=e.dir.y*1.6;
+  ctx.fillStyle='#fff';ctx.beginPath();ctx.arc(-6+ex*.5,-3,5.2,0,7);ctx.arc(6+ex*.5,-3,5.2,0,7);ctx.fill();
+  ctx.fillStyle='#111';ctx.beginPath();ctx.arc(-6+ex,-3+ey,2.5,0,7);ctx.arc(6+ex,-3+ey,2.5,0,7);ctx.fill();
+  ctx.restore();
+  ctx.font='bold 11px system-ui,sans-serif';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='rgba(0,0,0,.8)';
+  ctx.fillStyle=label.c;ctx.strokeText(label.t,e.x,e.y-36);ctx.fillText(label.t,e.x,e.y-36);
+}
+function drawBody(b){
+  ctx.save();ctx.translate(b.x,b.y);
+  ctx.fillStyle='rgba(0,0,0,.35)';ctx.beginPath();ctx.ellipse(0,8,20,6,0,0,7);ctx.fill();
+  ctx.strokeStyle='#cdd3ee';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(14,0);ctx.lineTo(26,6);ctx.stroke();
+  ctx.fillStyle=b.color;ctx.beginPath();ctx.arc(28,7,3.5,0,7);ctx.fill();
+  ctx.beginPath();ctx.ellipse(0,0,18,11,0,0,7);ctx.fill();ctx.strokeStyle='rgba(0,0,0,.35)';ctx.stroke();
+  ctx.strokeStyle='#1a1a1a';ctx.lineWidth=2;ctx.beginPath();
+  for(const cx of[-6,6]){ctx.moveTo(cx-3,-5);ctx.lineTo(cx+3,1);ctx.moveTo(cx+3,-5);ctx.lineTo(cx-3,1)}
+  ctx.stroke();ctx.restore();
+}
+function draw(ts){
+  ctx.setTransform(DPR,0,0,DPR,0,0);
+  ctx.fillStyle='#05060d';ctx.fillRect(0,0,W,H);
+  const P=G?G.ents[0]:{x:700,y:400};
+  for(const s of STARS){const x=((s.x*W*1.5-P.x*.12)%W+W)%W,y=((s.y*H*1.5-P.y*.12)%H+H)%H;ctx.globalAlpha=s.a*(.7+.3*Math.sin(ts*2+s.x*50));ctx.fillStyle='#fff';ctx.fillRect(x,y,s.r,s.r)}
+  ctx.globalAlpha=1;
+  if(!G)return;
+  const S=clamp(Math.min(W,H)/520,.6,1.5);
+  ctx.save();ctx.translate(W/2-P.x*S,H/2-P.y*S);ctx.scale(S,S);
+  // walls & floors
+  ctx.fillStyle='#232842';for(const r of ALL)ctx.fillRect(r.x-12,r.y-12,r.w+24,r.h+24);
+  ctx.fillStyle='#14172a';for(const r of ALL)ctx.fillRect(r.x-5,r.y-5,r.w+10,r.h+10);
+  ctx.fillStyle='#363c55';for(const r of HALLS)ctx.fillRect(r.x,r.y,r.w,r.h);
+  for(const r of ROOMS){ctx.fillStyle=r.c;ctx.fillRect(r.x,r.y,r.w,r.h)}
+  ctx.strokeStyle='rgba(255,255,255,.05)';ctx.lineWidth=1;
+  for(const r of ALL){ctx.save();ctx.beginPath();ctx.rect(r.x,r.y,r.w,r.h);ctx.clip();ctx.beginPath();for(let x=Math.floor(r.x/40)*40;x<r.x+r.w;x+=40){ctx.moveTo(x,r.y);ctx.lineTo(x,r.y+r.h)}for(let y=Math.floor(r.y/40)*40;y<r.y+r.h;y+=40){ctx.moveTo(r.x,y);ctx.lineTo(r.x+r.w,y)}ctx.stroke();ctx.restore()}
+  // hallway stripes
+  ctx.fillStyle='rgba(255,210,80,.12)';ctx.fillRect(280,443,840,4);
+  // room labels
+  ctx.font='bold 16px system-ui,sans-serif';ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.28)';
+  for(const r of ROOMS)ctx.fillText(r.n.toUpperCase(),r.x+r.w/2,r.y+r.h-14);
+  // cafeteria table + emergency button
+  ctx.fillStyle='#5d6584';ctx.beginPath();ctx.arc(EMERG.x,EMERG.y,40,0,7);ctx.fill();ctx.strokeStyle='#2a2f48';ctx.lineWidth=4;ctx.stroke();
+  ctx.fillStyle='#8c95b8';ctx.beginPath();ctx.arc(EMERG.x,EMERG.y,18,0,7);ctx.fill();
+  ctx.fillStyle=G.emergencies>0?'#ff3b3b':'#6a3a3a';ctx.beginPath();ctx.arc(EMERG.x,EMERG.y,11,0,7);ctx.fill();
+  // decor: reactor core, nav window
+  ctx.fillStyle='rgba(120,220,255,.25)';ctx.beginPath();ctx.arc(170,450,32+Math.sin(ts*3)*3,0,7);ctx.fill();
+  ctx.fillStyle='#0a0f22';ctx.fillRect(1320,360,14,160);
+  // vents
+  for(let i=0;i<VENTS.length;i++){const v=VENTS[i];const mine=G.inVent===i;
+    ctx.fillStyle='#1a1f30';ctx.fillRect(v.x-18,v.y-11,36,22);ctx.strokeStyle=mine?'#ff5d5d':'#6b7699';ctx.lineWidth=mine?3:2;ctx.strokeRect(v.x-18,v.y-11,36,22);
+    ctx.strokeStyle='#4a5370';ctx.lineWidth=2;ctx.beginPath();for(let k=-12;k<=12;k+=6){ctx.moveTo(v.x+k,v.y-7);ctx.lineTo(v.x+k,v.y+7)}ctx.stroke();
+    if(G.role==='imp'&&G.inVent==null&&G.near&&G.near.vent===i){ctx.strokeStyle=`rgba(255,93,93,${.5+.5*Math.sin(ts*6)})`;ctx.lineWidth=2;ctx.strokeRect(v.x-22,v.y-15,44,30)}
+  }
+  // task stations
+  for(const t of TASKS){
+    const todo=G.role==='crew'&&!G.pTasks.has(t.id);
+    ctx.fillStyle='#1e2338';ctx.fillRect(t.x-16,t.y-12,32,24);
+    ctx.lineWidth=todo?3:2;ctx.strokeStyle=todo?`rgba(255,211,61,${.6+.4*Math.sin(ts*5)})`:'#4a5274';ctx.strokeRect(t.x-16,t.y-12,32,24);
+    ctx.fillStyle=todo?'#ffd33d':'#5be38f';ctx.font='bold 14px system-ui,sans-serif';ctx.fillText(todo?'!':'✓',t.x,t.y+5);
+  }
+  const VR=(G.role==='imp'?320:250)*(G.sabotage&&G.sabotage.type==='lights'?.48:1);
+  for(const b of G.bodies)if(dist(P,b)<VR+20)drawBody(b);
+  const vis=G.ents.filter(e=>e.alive&&!e.hidden&&(e.isPlayer||(!e.invis&&dist(P,e)<VR+20))).sort((a,b)=>a.y-b.y);
+  for(const e of vis){const L=looks(e);ctx.globalAlpha=e.invis?.35:1;drawBot(e,{t:e.isPlayer?(e.disguise!=null?'You ('+L.name+')':'You'):L.name,c:e.isPlayer?(G.role==='imp'?'#ff6b6b':'#fff'):'#fff'},L.color);ctx.globalAlpha=1}
+  ctx.restore();
+  // fog of vision
+  const vr=VR*S;
+  const g=ctx.createRadialGradient(W/2,H/2,vr*.7,W/2,H/2,vr);
+  g.addColorStop(0,'rgba(2,3,8,0)');g.addColorStop(1,'rgba(2,3,8,.9)');
+  ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+  // arrow to nearest task
+  if(G.role==='crew'&&G.state==='play'&&!(G.sabotage&&G.sabotage.type==='comms')){
+    let best=null,bd=1e9;for(const t of TASKS){if(G.pTasks.has(t.id))continue;const d=dist(P,t);if(d<bd){bd=d;best=t}}
+    if(best&&bd>130){const a=Math.atan2(best.y-P.y,best.x-P.x),r=62*S;ctx.save();ctx.translate(W/2+Math.cos(a)*r,H/2+Math.sin(a)*r);ctx.rotate(a);ctx.fillStyle='#ffd33d';ctx.strokeStyle='#000';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(12,0);ctx.lineTo(-7,-9);ctx.lineTo(-3,0);ctx.lineTo(-7,9);ctx.closePath();ctx.fill();ctx.stroke();ctx.restore()}
+  }
+  $('flash').style.opacity=G.flash>0?Math.min(.45,G.flash):0;
+}
+
+/* ---------- loop ---------- */
+let lastT=performance.now();
+function loop(now){
+  const dt=Math.min(.05,(now-lastT)/1000);lastT=now;
+  if(G){if(G.state==='play'&&NET.mode!=='guest')update(dt);else if(G.state==='meeting'&&G.meet&&G.meet.open&&NET.mode!=='guest')meetTick(dt)}
+  if(NET.mode==='host'&&now-NET.lastSend>100){NET.lastSend=now;hostSnapshot()}
+  if(NET.mode==='guest'&&NET.conn&&NET.conn.open&&now-NET.lastSend>50){NET.lastSend=now;let vx=joy.x,vy=joy.y;if(keys['arrowleft']||keys['a'])vx-=1;if(keys['arrowright']||keys['d'])vx+=1;if(keys['arrowup']||keys['w'])vy-=1;if(keys['arrowdown']||keys['s'])vy+=1;sendNet({type:'move',x:vx,y:vy})}
+  draw(now/1000);
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+/* ---------- start screen ---------- */
+$('swatches').innerHTML=COLORS.map((c,i)=>`<button class="sw ${i===0?'sel':''}" data-i="${i}" style="background:${c[1]}" aria-label="${c[0]}"></button>`).join('');
+$('swatches').querySelectorAll('.sw').forEach(b=>b.onclick=()=>{startColor=+b.dataset.i;$('swatches').querySelectorAll('.sw').forEach(x=>x.classList.toggle('sel',x===b));beep(500,.05)});
+function renderRoles(){
+  const btn=k=>`<button class="rbtn ${ROLES[k].team==='imp'?'imp':''} ${startRole===k?'sel':''}" data-r="${k}"><span class="re">${ROLES[k].e}</span>${ROLES[k].n}</button>`;
+  $('rgCrew').innerHTML=['crewmate','engineer','scientist','sheriff','detective','random'].map(btn).join('');
+  $('rgImp').innerHTML=['impostor','shapeshifter','phantom'].map(btn).join('');
+  $('roleDesc').innerHTML=`<b>${ROLES[startRole].e} ${ROLES[startRole].n}:</b> ${ROLES[startRole].d}`;
+  document.querySelectorAll('.rbtn').forEach(b=>b.onclick=()=>{startRole=b.dataset.r;beep(500,.05);renderRoles()});
+}
+renderRoles();
+$('createRoom').onclick=()=>startHostRoom();
+$('joinRoom').onclick=()=>joinHostRoom();
+$('play').onclick=()=>{beep(660,.1,'sine',.06);newGame(startRole,startColor)};
+$('again').onclick=()=>{$('end').classList.add('hidden');$('start').classList.remove('hidden');G=null;$('hud').classList.add('hidden')};
+})();
+</script>
+</body>
+</html>
