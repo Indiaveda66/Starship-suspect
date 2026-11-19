@@ -209,6 +209,45 @@ details li{margin:4px 0}
   #start .card{padding:10px}
 }
 
+
+/* ---------- online waiting room ---------- */
+#lobby .lbCol{min-width:0}
+.roomCode{display:block;width:100%;margin:0;padding:10px 8px;border-radius:14px;border:2px dashed #4b9cff;background:#0b1430;color:#fff;font-family:inherit;font-size:clamp(34px,8vw,52px);font-weight:900;letter-spacing:.14em;font-variant-numeric:tabular-nums;text-align:center;text-shadow:0 0 18px #4b9cff88;user-select:all;-webkit-user-select:all}
+.roomCode:active{transform:scale(.98)}
+.lbBtns{display:flex;gap:8px;margin-top:10px}
+.lbBtn{flex:1;padding:12px 8px;border-radius:11px;background:#26304d;color:#fff;font-weight:900;font-size:14px;border:2px solid #46527a}
+.lbBtn.inv{background:linear-gradient(180deg,#4b9cff,#2865c4);border-color:#7ab8ff}
+.lbBtn:active{transform:translateY(2px)}
+#lbPlayers{display:flex;flex-direction:column;gap:6px;text-align:left}
+.lbP{display:flex;align-items:center;gap:10px;padding:9px 12px;background:#0d1122;border:2px solid #2f3757;border-radius:11px;font-weight:800;font-size:14px}
+.lbP .dot{margin:0;width:14px;height:14px;flex:none}
+.lbP .tag{margin-left:auto;font-size:10px;padding:2px 7px;border-radius:7px;background:#1d4a34;color:#7ef0a8;letter-spacing:.5px}
+.lbP.host .tag{background:#4a3a12;color:#ffd75e}
+.lbP.empty{opacity:.6;border-style:dashed;font-weight:700;color:#9aa4c8}
+.lbDots::after{content:'';animation:lbd 1.4s steps(1,end) infinite}
+@keyframes lbd{0%{content:''}25%{content:'.'}50%{content:'..'}75%{content:'...'}}
+#lbMeta{margin-top:8px;font-size:12px;color:#8a93b8;text-align:center}
+#lbHint{margin-top:8px;font-size:12px;color:#aab3d6;text-align:center;min-height:15px}
+#lbNote{min-height:16px;margin-top:8px;font-size:12px;font-weight:800;color:#7ef0a8;text-align:center}
+#lbWait{margin-top:16px;padding:14px;border-radius:12px;background:#0d1122;border:1px solid #3a4470;font-weight:800;color:#c9d4ff}
+.lbLeave{margin-top:12px;background:none;border:0;color:#8a93b8;font-weight:800;font-size:13px;text-decoration:underline;padding:6px}
+@media (min-width:600px){
+  #lobby .card{max-width:780px;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:24px;align-content:start;padding:18px 24px}
+  #lobby .card>h1,#lobby .card>.sub{grid-column:1/-1}
+  #lobby .lbl{margin:6px 0}
+}
+@media (max-height:520px){
+  #lobby .card{margin:auto;padding:10px 16px}
+  #lobby h1{font-size:22px;margin:0}
+  #lobby .sub{margin:0 0 6px;font-size:12px}
+  .roomCode{font-size:34px;padding:6px}
+  .lbBtns{margin-top:8px}
+  .lbBtn{padding:9px 6px;font-size:13px}
+  .lbP{padding:6px 10px}
+  #lbStart{margin-top:10px;padding:10px;font-size:16px}
+  #lbWait{margin-top:10px;padding:10px}
+  .lbLeave{margin-top:4px}
+}
 </style>
 <script>
 /**
@@ -317,6 +356,31 @@ details li{margin:4px 0}
         <li>You can only see what's close to you, so watch out in dark corridors…</li>
       </ul>
     </details>
+  </div>
+</div>
+
+<div id="lobby" class="ov hidden">
+  <div class="card">
+    <h1>🌐 WAITING ROOM</h1>
+    <p class="sub" id="lbSub"></p>
+    <div class="lbCol">
+      <div class="lbl">Room code</div>
+      <button id="lbCode" class="roomCode" aria-label="Room code - tap to copy"></button>
+      <div class="lbBtns" id="lbInvRow">
+        <button id="lbInvite" class="lbBtn inv">📨 INVITE</button>
+        <button id="lbCopy" class="lbBtn">📋 COPY CODE</button>
+      </div>
+      <div id="lbNote" aria-live="polite"></div>
+    </div>
+    <div class="lbCol">
+      <div class="lbl">Players <span id="lbCount"></span></div>
+      <div id="lbPlayers"></div>
+      <div id="lbMeta"></div>
+      <button id="lbStart" class="big">▶ START GAME</button>
+      <div id="lbHint"></div>
+      <div id="lbWait" class="hidden">⏳ Waiting for the host to start the game<span class="lbDots"></span></div>
+      <button id="lbLeave" class="lbLeave">Leave room</button>
+    </div>
   </div>
 </div>
 
@@ -437,18 +501,145 @@ const STARS=Array.from({length:140},()=>({x:rnd(),y:rnd(),r:rnd()*1.4+.3,a:rnd()
 /* ---------- game state ---------- */
 let G=null;
 /* ---------- PeerJS online room transport ---------- */
-let NET={mode:'offline',peer:null,conn:null,code:null,remoteId:null,lastSend:0};
+let NET={mode:'offline',peer:null,conn:null,code:null,remoteId:null,lastSend:0,guest:null};
 function netStatus(t){$('netStatus').textContent=t}
 function makeCode(){return String(Math.floor(100000+Math.random()*900000))}
 function sendNet(data){try{if(NET.conn&&NET.conn.open)NET.conn.send(data)}catch(e){netStatus('Connection interrupted. Please reconnect.')}}
 function serialiseGame(){return {pRole:G.pRole,role:G.role,mode:G.mode,hideTimer:G.hideTimer,ents:G.ents.map(e=>({...e,path:[]})),bodies:G.bodies.map(b=>({...b})),time:G.time,sabotage:G.sabotage?{...G.sabotage}:null,sabotageCd:G.sabotageCd,killCd:G.killCd,abilCd:G.abilCd,pTasks:{__set:[...G.pTasks]},emergencies:G.emergencies,state:G.state,flash:G.flash,remoteId:G.remoteId,sight:[],sightT:0,near:{task:null,emerg:false,body:null,kill:null,fix:false,vent:null},inTask:false,inVent:null,taskSig:''}}
 function restoreSets(v){if(!v||typeof v!=='object')return v;if(v.__set)return new Set(v.__set);if(Array.isArray(v))return v.map(restoreSets);for(const k of Object.keys(v))v[k]=restoreSets(v[k]);return v}
-function setupHostConnection(conn){NET.conn=conn;conn.on('open',()=>{if(!G)return;const e={id:G.ents.length,name:(conn.metadata&&conn.metadata.name?String(conn.metadata.name).slice(0,12):'Guest'),color:'#05a2c2',x:G.ents[0].x+38,y:G.ents[0].y+20,alive:true,isPlayer:false,isRemote:true,isImp:false,path:[],idle:0,node:0,tasks:0,dir:{x:0,y:1},walk:0,witness:null,role:'crewmate'};G.ents.push(e);G.remoteId=e.id;G.remoteInput={x:0,y:0};$('roomLbl').textContent='🌐 ROOM '+NET.code;netStatus('Friend connected! Room '+NET.code);conn.send({type:'welcome',id:e.id,code:NET.code});});conn.on('data',m=>{if(!G||!m)return;if(m.type==='move'&&G.remoteId!=null)G.remoteInput={x:clamp(+m.x||0,-1,1),y:clamp(+m.y||0,-1,1)};if(m.type==='action'&&G.remoteId!=null){const e=G.ents[G.remoteId];if(!e||!e.alive)return;const nearBody=G.bodies.find(b=>dist(e,b)<95);if(m.action==='report'&&nearBody)callMeeting(e,nearBody);if(m.action==='use'){if(G.sabotage?.type==='reactor'&&dist(e,{x:145,y:400})<105){G.sabotage=null;toast('Guest stabilized the reactor!');updateTaskHUD()}else if(dist(e,EMERG)<95&&G.emergencies>0){G.emergencies--;callMeeting(e,null)}else{const task=TASKS.find(t=>!G.pTasks.has(t.id)&&dist(e,t)<60);if(task){e.tasks=Math.min(TPB,e.tasks+1);toast('Guest completed a task!');if(checkWin())return}}}}});conn.on('close',()=>{if(G&&G.remoteId!=null){G.ents=G.ents.filter(e=>!e.isRemote);G.remoteId=null;G.remoteInput=null}NET.conn=null;netStatus('Friend disconnected. You can keep playing with bots.');});conn.on('error',()=>netStatus('Connection error. Check the room code and internet connection.'))}
+function addRemotePlayer(conn,name){
+  const e={id:G.ents.length,name,color:'#05a2c2',x:G.ents[0].x+38,y:G.ents[0].y+20,alive:true,isPlayer:false,isRemote:true,isImp:false,path:[],idle:0,node:0,tasks:0,dir:{x:0,y:1},walk:0,witness:null,role:'crewmate'};
+  G.ents.push(e);G.remoteId=e.id;G.remoteInput={x:0,y:0};
+  $('roomLbl').textContent='🌐 ROOM '+NET.code;
+  try{conn.send({type:'welcome',id:e.id,code:NET.code})}catch(err){}
+  return e;
+}
+function setupHostConnection(conn){
+  /* a room holds the host + one friend: politely turn extra people away */
+  if(NET.conn&&NET.conn!==conn&&NET.conn.open){
+    conn.on('open',()=>{try{conn.send({type:'full'})}catch(e){}setTimeout(()=>{try{conn.close()}catch(e){}},400)});
+    return;
+  }
+  NET.conn=conn;
+  conn.on('open',()=>{
+    const name=(conn.metadata&&conn.metadata.name?String(conn.metadata.name).slice(0,12):'Guest')||'Guest';
+    NET.guest={name};
+    if(G){ /* match already running (friend re-joining): drop straight in */
+      addRemotePlayer(conn,name);netStatus('Friend connected! Room '+NET.code);
+    }else{ /* still in the waiting room */
+      syncLobby();lbNote('🎉 '+name+' joined the room!');beep(660,.08,'sine',.06);
+    }
+  });
+  conn.on('data',m=>{if(m&&m.type==='bye'){try{conn.close()}catch(e){}return}if(!G||!m)return;if(m.type==='move'&&G.remoteId!=null)G.remoteInput={x:clamp(+m.x||0,-1,1),y:clamp(+m.y||0,-1,1)};if(m.type==='action'&&G.remoteId!=null){const e=G.ents[G.remoteId];if(!e||!e.alive)return;const nearBody=G.bodies.find(b=>dist(e,b)<95);if(m.action==='report'&&nearBody)callMeeting(e,nearBody);if(m.action==='use'){if(G.sabotage?.type==='reactor'&&dist(e,{x:145,y:400})<105){G.sabotage=null;toast('Guest stabilized the reactor!');updateTaskHUD()}else if(dist(e,EMERG)<95&&G.emergencies>0){G.emergencies--;callMeeting(e,null)}else{const task=TASKS.find(t=>!G.pTasks.has(t.id)&&dist(e,t)<60);if(task){e.tasks=Math.min(TPB,e.tasks+1);toast('Guest completed a task!');if(checkWin())return}}}}});conn.on('close',()=>{
+    if(NET.conn!==conn)return;
+    NET.conn=null;NET.guest=null;
+    if(G){if(G.remoteId!=null){G.ents=G.ents.filter(e=>!e.isRemote);G.remoteId=null;G.remoteInput=null}netStatus('Friend disconnected. You can keep playing with bots.')}
+    else if(NET.mode==='host'){syncLobby();lbNote('Your friend left the room.');netStatus('Friend disconnected.')}
+  });
+  conn.on('error',()=>netStatus('Connection error. Check the room code and internet connection.'))
+}
 function hostSnapshot(){if(NET.mode!=='host'||!NET.conn||!NET.conn.open||!G)return;try{NET.conn.send({type:'state',game:serialiseGame(),remoteId:NET.remoteId})}catch(e){}}
 function onlineBusy(on){$('createRoom').disabled=on;$('joinRoom').disabled=on;$('createRoom').style.opacity=on?'.55':'1';$('joinRoom').style.opacity=on?'.55':'1'}
 function stopPendingPeer(message){if(NET.peer){try{NET.peer.destroy()}catch(e){}}NET.peer=null;NET.conn=null;NET.mode='offline';onlineBusy(false);netStatus(message)}
-function startHostRoom(){if(!window.Peer){netStatus('PeerJS did not load. Check your internet connection and reload.');return}if(NET.peer)return;const code=makeCode();NET={mode:'host',peer:null,conn:null,code,remoteId:null,lastSend:0};onlineBusy(true);netStatus('Connecting to online server…');let settled=false;const peer=new Peer('orbit-outcast-'+code,{debug:0});NET.peer=peer;const timer=setTimeout(()=>{if(settled)return;settled=true;stopPendingPeer('Online server is taking too long. Please try again in a moment, or check your internet connection.');},12000);peer.on('open',()=>{if(settled)return;settled=true;clearTimeout(timer);onlineBusy(false);netStatus('Room '+code+' created! Share this code with your friend.');$('createRoom').textContent='ROOM '+code;newGame(startRole,startColor);$('roomLbl').textContent='🌐 ROOM '+code});peer.on('connection',setupHostConnection);peer.on('error',e=>{if(settled){netStatus('Room error: '+(e.type||'connection failed')+'. Try again.');return}settled=true;clearTimeout(timer);stopPendingPeer('Could not create room ('+(e.type||'server error')+'). Please try again.')})}
-function joinHostRoom(){if(!window.Peer){netStatus('PeerJS did not load. Check your internet connection and reload.');return}if(NET.peer)return;const code=$('joinCode').value.replace(/\D/g,'').slice(0,6);if(code.length!==6){netStatus('Enter the 6-digit room code.');return}NET={mode:'guest',peer:null,conn:null,code,remoteId:null,lastSend:0};onlineBusy(true);netStatus('Connecting to online server…');let settled=false;const peer=new Peer(undefined,{debug:0});NET.peer=peer;const timer=setTimeout(()=>{if(settled)return;settled=true;stopPendingPeer('Connection timed out. Check your internet and try again.');},15000);peer.on('open',()=>{if(settled)return;const c=peer.connect('orbit-outcast-'+code,{reliable:true,metadata:{name:( $('playerNameInput')?.value.trim()||'Guest').slice(0,12)}});NET.conn=c;c.on('open',()=>{if(settled)return;settled=true;clearTimeout(timer);onlineBusy(false);netStatus('Connected! Waiting for the host…')});c.on('data',m=>{if(m.type==='welcome'){NET.remoteId=m.id;$('hud').classList.remove('hidden');$('start').classList.add('hidden');$('roomLbl').textContent='🌐 ROOM '+code;netStatus('Joined room '+code+'. You are the blue crewmate.')}if(m.type==='state'&&m.game){let g=restoreSets(m.game);const rid=m.remoteId;if(rid==null||!g.ents[rid])return;const local=g.ents[rid];g.ents.splice(rid,1);g.ents.unshift(local);g.ents[0].isPlayer=true;g.ents[0].isRemote=false;g.ents.forEach((e,i)=>{if(i>0)e.isPlayer=false});g.role='crew';g.pRole='crewmate';g.inTask=false;g.inVent=null;g.near={task:null,emerg:false,body:null,kill:null,fix:false,vent:null};G=g;updateTaskHUD();updateHUD();if(G.ents[0].ghost){$('ghostNote').classList.remove('hidden');['bSab','bAbil','bVent','bKill','bReport','bUse','bCamera'].forEach(id=>$(id).classList.add('hidden'));}else $('ghostNote').classList.add('hidden');$('bKill').classList.add('hidden');$('bSab').classList.add('hidden');$('bVent').classList.add('hidden');$('bAbil').classList.add('hidden')}});c.on('close',()=>{clearTimeout(timer);onlineBusy(false);netStatus('Disconnected from host.')});c.on('error',()=>{clearTimeout(timer);stopPendingPeer('Could not join. Check the room code and try again.')})});peer.on('error',e=>{if(settled)return;settled=true;clearTimeout(timer);stopPendingPeer('Connection failed ('+(e.type||'server error')+'). Try again.')})}
+/* ---------- online waiting room ---------- */
+let LB={on:false,players:[],meta:''};
+const spaced=c=>String(c||'').replace(/^(\d{3})(\d{3})$/,'$1 $2');
+function lbNote(msg){const el=$('lbNote');el.textContent=msg||'';clearTimeout(lbNote.t);if(msg)lbNote.t=setTimeout(()=>{el.textContent=''},3200)}
+function lobbyMeta(){const hs=$('gameMode').value==='hide_seek';return (hs?'Hide & Seek':'Classic')+' · '+$('playerCount').value+' players · bots fill empty seats'}
+function hostLobbyPlayers(){
+  const a=[{name:($('playerNameInput')?.value.trim()||'Astro').slice(0,12),color:COLORS[startColor][1],host:true}];
+  if(NET.guest)a.push({name:NET.guest.name,color:'#05a2c2',host:false});
+  return a;
+}
+function renderLobby(){
+  const host=NET.mode==='host';
+  $('lbCode').textContent=spaced(NET.code);
+  const box=$('lbPlayers');box.textContent='';
+  LB.players.forEach(p=>{
+    const row=document.createElement('div');row.className='lbP'+(p.host?' host':'');
+    const d=document.createElement('span');d.className='dot';d.style.background=p.color;
+    const n=document.createElement('span');n.textContent=p.name+(p.me?' (you)':'');
+    const tag=document.createElement('span');tag.className='tag';tag.textContent=p.host?'HOST':'READY';
+    row.append(d,n,tag);box.append(row);
+  });
+  if(LB.players.length<2){
+    const row=document.createElement('div');row.className='lbP empty';
+    const d=document.createElement('span');d.className='dot';d.style.background='#39405a';
+    const n=document.createElement('span');n.textContent='Waiting for a friend';
+    const dots=document.createElement('span');dots.className='lbDots';n.append(dots);
+    row.append(d,n);box.append(row);
+  }
+  $('lbCount').textContent='('+LB.players.length+'/2)';
+  $('lbMeta').textContent=LB.meta||'';
+  $('lbSub').textContent=host?'Send the code to your friend, then press START GAME when everyone is in.':'You are in! The host will start the game soon.';
+  $('lbStart').classList.toggle('hidden',!host);
+  $('lbHint').classList.toggle('hidden',!host);
+  $('lbHint').textContent=LB.players.length<2?'Nobody has joined yet. You can still start - bots will fill the ship.':'Everyone is in - start whenever you are ready!';
+  $('lbInvRow').classList.toggle('hidden',!host);
+  $('lbWait').classList.toggle('hidden',host);
+}
+function showLobby(){
+  if(NET.mode==='host'){LB.players=hostLobbyPlayers();LB.meta=lobbyMeta()}
+  LB.on=true;
+  ['start','end','mini','meet','msg','hud','modeTimer'].forEach(id=>$(id).classList.add('hidden'));
+  $('lobby').classList.remove('hidden');
+  renderLobby();
+}
+function hideLobby(){LB.on=false;$('lobby').classList.add('hidden')}
+/* host: refresh the list and tell the friend what the room looks like */
+function syncLobby(){
+  if(NET.mode!=='host')return;
+  LB.players=hostLobbyPlayers();LB.meta=lobbyMeta();
+  if(LB.on)renderLobby();
+  if(NET.guest)sendNet({type:'lobby',code:NET.code,players:LB.players.map(p=>({name:p.name,color:p.color,host:p.host})),meta:LB.meta});
+}
+function resetOnlineUI(msg){
+  hideLobby();LB.players=[];
+  NET={mode:'offline',peer:null,conn:null,code:null,remoteId:null,lastSend:0,guest:null};
+  onlineBusy(false);$('createRoom').textContent='CREATE ONLINE ROOM';
+  if(msg)netStatus(msg);
+}
+/* leave the room and go back to the main menu */
+function dropToStart(msg){
+  const peer=NET.peer;
+  G=null;['hud','modeTimer','ghostNote','mini','meet','msg','end'].forEach(id=>$(id).classList.add('hidden'));
+  resetOnlineUI(msg);
+  $('start').classList.remove('hidden');
+  if(peer)setTimeout(()=>{try{peer.destroy()}catch(e){}},300);
+}
+function leaveRoom(){
+  try{if(NET.conn&&NET.conn.open)NET.conn.send({type:NET.mode==='host'?'closed':'bye'})}catch(e){}
+  dropToStart('You left the room.');
+}
+/* host presses START GAME */
+function startOnlineGame(){
+  if(NET.mode!=='host'||!NET.peer||G)return;
+  hideLobby();preferLandscape();beep(660,.1,'sine',.06);
+  newGame(startRole,startColor);
+  if(NET.guest&&NET.conn&&NET.conn.open)addRemotePlayer(NET.conn,NET.guest.name);
+  $('roomLbl').textContent='🌐 ROOM '+NET.code;
+  netStatus('Match running in room '+NET.code+'.');
+}
+/* invite / copy */
+function fallbackCopy(txt){try{const a=document.createElement('textarea');a.value=txt;a.setAttribute('readonly','');a.style.cssText='position:fixed;left:-9999px;top:0;opacity:0;user-select:text;-webkit-user-select:text';document.body.appendChild(a);a.select();a.setSelectionRange(0,txt.length);const ok=document.execCommand('copy');a.remove();return ok}catch(e){return false}}
+function copyText(txt){
+  if(navigator.clipboard&&window.isSecureContext)return navigator.clipboard.writeText(txt).then(()=>true,()=>fallbackCopy(txt));
+  return Promise.resolve(fallbackCopy(txt));
+}
+function inviteLink(){if(!/^https?:$/.test(location.protocol))return '';try{const u=new URL(location.href);u.hash='room='+NET.code;return u.toString()}catch(e){return ''}}
+async function inviteFriends(){
+  if(!NET.code)return;
+  const link=inviteLink(),text='Join my Orbit Outcast room! Room code: '+NET.code;
+  if(navigator.share){
+    try{await navigator.share(link?{title:'Orbit Outcast',text,url:link}:{title:'Orbit Outcast',text});lbNote('Invite sent!');return}
+    catch(e){if(e&&e.name==='AbortError')return}
+  }
+  const ok=await copyText(link?text+'\n'+link:text);
+  lbNote(ok?'📋 Invite copied - paste it to your friend!':'Could not copy. Tell your friend the code: '+NET.code);
+}
+async function copyRoomCode(){const ok=await copyText(NET.code||'');lbNote(ok?'📋 Code '+NET.code+' copied!':'Could not copy. Your code is '+NET.code)}
+function startHostRoom(){if(!window.Peer){netStatus('PeerJS did not load. Check your internet connection and reload.');return}if(NET.peer)return;const code=makeCode();NET={mode:'host',peer:null,conn:null,code,remoteId:null,lastSend:0,guest:null};onlineBusy(true);netStatus('Connecting to online server…');let settled=false;const peer=new Peer('orbit-outcast-'+code,{debug:0});NET.peer=peer;const timer=setTimeout(()=>{if(settled)return;settled=true;stopPendingPeer('Online server is taking too long. Please try again in a moment, or check your internet connection.');},12000);peer.on('open',()=>{if(settled)return;settled=true;clearTimeout(timer);onlineBusy(false);netStatus('Room '+code+' created! Share this code with your friend.');$('createRoom').textContent='ROOM '+code;NET.guest=null;showLobby();beep(660,.08,'sine',.06)});peer.on('disconnected',()=>{setTimeout(()=>{try{if(NET.peer===peer&&!peer.destroyed)peer.reconnect()}catch(e){}},1500)});peer.on('connection',setupHostConnection);peer.on('error',e=>{if(settled){netStatus('Room error: '+(e.type||'connection failed')+'. Try again.');lbNote('⚠ Room error ('+(e.type||'connection failed')+'). If your friend cannot join, leave and create a new room.');return}settled=true;clearTimeout(timer);stopPendingPeer('Could not create room ('+(e.type||'server error')+'). Please try again.')})}
+function joinHostRoom(){if(!window.Peer){netStatus('PeerJS did not load. Check your internet connection and reload.');return}if(NET.peer)return;const code=$('joinCode').value.replace(/\D/g,'').slice(0,6);if(code.length!==6){netStatus('Enter the 6-digit room code.');return}NET={mode:'guest',peer:null,conn:null,code,remoteId:null,lastSend:0,guest:null};onlineBusy(true);netStatus('Connecting to online server…');let settled=false;const peer=new Peer(undefined,{debug:0});NET.peer=peer;const timer=setTimeout(()=>{if(settled)return;settled=true;stopPendingPeer('Connection timed out. Check your internet and try again.');},15000);peer.on('open',()=>{if(settled)return;const c=peer.connect('orbit-outcast-'+code,{reliable:true,metadata:{name:( $('playerNameInput')?.value.trim()||'Guest').slice(0,12)}});NET.conn=c;c.on('open',()=>{if(settled)return;settled=true;clearTimeout(timer);onlineBusy(false);netStatus('Connected! Waiting for the host…')});c.on('data',m=>{if(!m)return;if(m.type==='lobby'){if(G)G=null;LB.players=(Array.isArray(m.players)?m.players:[]).slice(0,4).map(p=>({name:String(p&&p.name||'Player').slice(0,12),color:/^#[0-9a-f]{6}$/i.test(p&&p.color)?p.color:'#8a93b8',host:!!(p&&p.host),me:!(p&&p.host)}));LB.meta=String(m.meta||'').slice(0,80);showLobby();netStatus('In room '+code+'. Waiting for the host to start…');return}if(m.type==='full'){dropToStart('That room is full (host + 1 friend).');return}if(m.type==='closed'){dropToStart('The host closed the room.');return}if(m.type==='welcome'){NET.remoteId=m.id;hideLobby();$('hud').classList.remove('hidden');$('start').classList.add('hidden');$('roomLbl').textContent='🌐 ROOM '+code;netStatus('Joined room '+code+'. You are the blue crewmate.')}if(m.type==='state'&&m.game){let g=restoreSets(m.game);const rid=m.remoteId;if(rid==null||!g.ents[rid])return;const local=g.ents[rid];g.ents.splice(rid,1);g.ents.unshift(local);g.ents[0].isPlayer=true;g.ents[0].isRemote=false;g.ents.forEach((e,i)=>{if(i>0)e.isPlayer=false});g.role='crew';g.pRole='crewmate';g.inTask=false;g.inVent=null;g.near={task:null,emerg:false,body:null,kill:null,fix:false,vent:null};G=g;updateTaskHUD();updateHUD();if(G.ents[0].ghost){$('ghostNote').classList.remove('hidden');['bSab','bAbil','bVent','bKill','bReport','bUse','bCamera'].forEach(id=>$(id).classList.add('hidden'));}else $('ghostNote').classList.add('hidden');$('bKill').classList.add('hidden');$('bSab').classList.add('hidden');$('bVent').classList.add('hidden');$('bAbil').classList.add('hidden')}});c.on('close',()=>{clearTimeout(timer);if(NET.conn!==c)return;dropToStart('Disconnected from the host.')});c.on('error',()=>{clearTimeout(timer);if(LB.on||G)dropToStart('Connection problem - please join again.');else stopPendingPeer('Could not join. Check the room code and try again.')})});peer.on('error',e=>{if(settled)return;settled=true;clearTimeout(timer);stopPendingPeer('Connection failed ('+(e.type||'server error')+'). Try again.')})}
 const ROLES={
  crewmate:{team:'crew',e:'👩‍🚀',n:'Crewmate',d:'Do your tasks and find the Impostor.'},
  engineer:{team:'crew',e:'🔧',n:'Engineer',d:'You can travel through vents too! But if someone sees you, they\'ll think you\'re the Impostor.'},
@@ -1313,7 +1504,7 @@ function loop(now){
   const dt=Math.min(.05,(now-lastT)/1000);lastT=now;
   if(G){if(G.state==='play'&&NET.mode!=='guest')update(dt);else if(G.state==='meeting'&&G.meet&&G.meet.open&&NET.mode!=='guest')meetTick(dt)}
   if(NET.mode==='host'&&now-NET.lastSend>100){NET.lastSend=now;hostSnapshot()}
-  if(NET.mode==='guest'&&NET.conn&&NET.conn.open&&now-NET.lastSend>50){NET.lastSend=now;let vx=joy.x,vy=joy.y;if(keys['arrowleft']||keys['a'])vx-=1;if(keys['arrowright']||keys['d'])vx+=1;if(keys['arrowup']||keys['w'])vy-=1;if(keys['arrowdown']||keys['s'])vy+=1;sendNet({type:'move',x:vx,y:vy})}
+  if(NET.mode==='guest'&&G&&NET.conn&&NET.conn.open&&now-NET.lastSend>50){NET.lastSend=now;let vx=joy.x,vy=joy.y;if(keys['arrowleft']||keys['a'])vx-=1;if(keys['arrowright']||keys['d'])vx+=1;if(keys['arrowup']||keys['w'])vy-=1;if(keys['arrowdown']||keys['s'])vy+=1;sendNet({type:'move',x:vx,y:vy})}
   draw(now/1000);
   requestAnimationFrame(loop);
 }
@@ -1335,6 +1526,8 @@ else{const n=document.createElement('div');n.style.cssText='margin:-8px 0 10px;f
 function preferLandscape(){try{if(screen.orientation&&screen.orientation.lock)screen.orientation.lock('landscape').catch(()=>{});}catch(e){}}
 $('createRoom').onclick=()=>{preferLandscape();startHostRoom()};
 $('joinRoom').onclick=()=>{preferLandscape();joinHostRoom()};
+$('lbStart').onclick=startOnlineGame;$('lbInvite').onclick=inviteFriends;$('lbCopy').onclick=copyRoomCode;$('lbCode').onclick=copyRoomCode;$('lbLeave').onclick=leaveRoom;
+{const m=/[#&?]room=(\d{6})\b/.exec(location.hash||'');if(m){$('joinCode').value=m[1];netStatus('Invite link detected - room '+m[1]+'. Enter your name and press JOIN.')}}
 $('playerCount').oninput=()=>{$('playerCountVal').textContent=$('playerCount').value};
 $('volumeSlider').value=Math.round(masterVolume*100);$('volumeVal').textContent=Math.round(masterVolume*100)+'%';
 $('volumeSlider').oninput=()=>{masterVolume=Number($('volumeSlider').value)/100;$('volumeVal').textContent=$('volumeSlider').value+'%';try{localStorage.setItem('orbitOutcastVolume',String(masterVolume))}catch(e){}beep(660,.05,'sine',.08)};
@@ -1342,7 +1535,7 @@ $('gameMode').onchange=()=>{const h=$('gameMode').value==='hide_seek';$('play').
 renderProfile();
 $('killCooldown').oninput=()=>{$('killCooldownVal').textContent=$('killCooldown').value+'s'};
 $('play').onclick=()=>{preferLandscape();beep(660,.1,'sine',.06);newGame(startRole,startColor)};
-$('again').onclick=()=>{$('end').classList.add('hidden');$('start').classList.remove('hidden');G=null;$('hud').classList.add('hidden');$('modeTimer').classList.add('hidden');renderProfile()};
+$('again').onclick=()=>{$('end').classList.add('hidden');G=null;$('hud').classList.add('hidden');$('modeTimer').classList.add('hidden');renderProfile();if(NET.mode==='host'&&NET.peer){showLobby();syncLobby()}else $('start').classList.remove('hidden')};
 })();
 </script>
 </body>
